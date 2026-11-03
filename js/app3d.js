@@ -238,7 +238,7 @@ function changed(rebuild = true) {
 
 function updateParams() {
   const be = backendGuess(), prm = latticeParams3(caseForParams(), be), box = $('params');
-  const mem = be === 'gpu' ? prm.cells * 172 : prm.cells * 176;
+  const mem = be === 'gpu' ? prm.cells * 196 : prm.cells * 196;
   const rate = be === 'gpu' ? (gpuInfo && /swiftshader/i.test(gpuInfo.name) ? 2e6 : 4e8) : 3.5e6, est = prm.steps * prm.cells / rate;
   box.innerHTML = [
     ['격자', `${prm.Nx}×${prm.Ny}×${prm.Nz}`], ['셀 수', prm.cells.toLocaleString()],

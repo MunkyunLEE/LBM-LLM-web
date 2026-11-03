@@ -125,8 +125,8 @@ function render() {
   }
   const cy = R['2d_cylinder'];
   if (cy) {
-    const c = vcase('v-cyl', '2D-3 원기둥 주위 흐름 (카르만 와열), Re = 100', `D = ${cy.D}셀, 도메인 ${cy.grid[0] / cy.D}D × ${Math.round(cy.grid[1] / cy.D)}D (막힘비 ${(100 * cy.D / cy.grid[1]).toFixed(0)}%), 미끄럼 측벽. 항력·양력 계수와 스트로할 수를 비구속 원기둥 문헌값(Park et al. 1998, Williamson)과 비교. 막힘비 때문에 C<sub>d</sub>가 수 % 높게 나오는 것이 정상입니다.`);
-    const h = cy.hist, t0 = h[0][0];
+    const c = vcase('v-cyl', '2D-3 원기둥 주위 흐름 (카르만 와열), Re = 100', `D = ${cy.D}셀, 도메인 ${cy.grid[0] / cy.D}D × ${Math.round(cy.grid[1] / cy.D)}D (막힘비 ${(100 * cy.D / cy.grid[1]).toFixed(0)}%), 미끄럼 측벽. 항력·양력 계수와 스트로할 수를 비구속 원기둥 문헌값(Park et al. 1998, Williamson)과 비교. 막힘비(측벽 가속)와 지름 20셀 해상도(경계층 약 2셀) 때문에 C<sub>d</sub>·C<sub>l</sub>이 높게 나옵니다. 주기(St)는 해상도에 덜 민감합니다.`);
+    const h = cy.hist.slice(Math.floor(cy.hist.length * 0.12)), t0 = h[0][0];
     chart(c.add(), { title: '항력·양력 계수 시계열', xlabel: 't [s]', ylabel: 'C', series: [{ name: 'C_d (LBM)', kind: 'line', color: S1, pts: h.map((r) => [r[0] - t0, r[1]]) }, { name: 'C_l (LBM)', kind: 'line', color: S3, pts: h.map((r) => [r[0] - t0, r[2]]) }, { name: `C_d 문헌 ${cy.ref.cd}`, kind: 'line', color: S2, dash: true, pts: [[0, cy.ref.cd], [h.at(-1)[0] - t0, cy.ref.cd]] }] });
     if (cy.field) fieldImage(c.add(), '순간 속도 크기 |u|/U (LBM)', cy.field.nx, cy.field.ny, cy.field.umag, { vmax: 1.5 });
     const e1 = pct(cy.cd, cy.ref.cd), e2 = pct(cy.St, cy.ref.St), e3 = pct(cy.clAmp, cy.ref.clAmp);
