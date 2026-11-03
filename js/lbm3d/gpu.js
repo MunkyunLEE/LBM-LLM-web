@@ -1,4 +1,4 @@
-import { EX, EY, EZ, W, OPP, REFL, F_SCALE, M_SCALE, MAX_PATCHES, MAX_BODIES, MAX_OBJECTS, bodyBuffer } from './setup.js';
+import { EX, EY, EZ, W, OPP, REFL, F_SCALE, M_SCALE, D_SCALE, MAX_PATCHES, MAX_BODIES, MAX_OBJECTS, bodyBuffer } from './setup.js';
 import { initParts } from './particles3d.js';
 
 const BCN = 8 * (6 + MAX_PATCHES), BODY = BCN, REFS = BODY + 32 * MAX_BODIES, GLOB = REFS + 4 * MAX_OBJECTS, LOADS = GLOB + 8, MISC = LOADS + 6 * MAX_OBJECTS;
@@ -37,8 +37,9 @@ fn wallVel(b: u32, X: vec3<f32>) -> vec3<f32> {
   let a = vec3<f32>(misc[o + 4u], misc[o + 5u], misc[o + 6u]) * misc[o + 9u];
   return cross(a, X - vec3<f32>(misc[o], misc[o + 1u], misc[o + 2u]));
 }
-fn flush(own: u32, F: vec3<f32>, M: vec3<f32>) {
-  let q = own * 6u;
+fn flush(own: u32, F: vec3<f32>, M: vec3<f32>, D: f32) {
+  let q = own * 8u;
+  if (D != 0.0) { atomicAdd(&acc[q + 6u], i32(round(D * ${D_SCALE}.0))); }
   atomicAdd(&acc[q], i32(round(F.x * ${F_SCALE}.0))); atomicAdd(&acc[q + 1u], i32(round(F.y * ${F_SCALE}.0))); atomicAdd(&acc[q + 2u], i32(round(F.z * ${F_SCALE}.0)));
   atomicAdd(&acc[q + 3u], i32(round(M.x * ${M_SCALE}.0))); atomicAdd(&acc[q + 4u], i32(round(M.y * ${M_SCALE}.0))); atomicAdd(&acc[q + 5u], i32(round(M.z * ${M_SCALE}.0)));
 }
@@ -67,7 +68,7 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   let pid = (c >> 10u) & 255u;
   let ramp = misc[GLOB + 1u];
   var f: array<f32,19>;
-  var cown = -1; var F = vec3<f32>(0.0); var M = vec3<f32>(0.0);
+  var cown = -1; var F = vec3<f32>(0.0); var M = vec3<f32>(0.0); var DD = 0.0;
   for (var i = 0u; i < 19u; i++) {
     let sx = x - EX[i]; let sy = y - EY[i]; let sz = z - EZ[i];
     let e = vec3<f32>(f32(EX[i]), f32(EY[i]), f32(EZ[i]));
@@ -82,10 +83,11 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
       if ((cs & 3u) == 2u) { fi += 6.0 * W[i] * dot(e, wallVel(bodyOf(own), X)); }
       f[i] = fi;
       if (own != 255u) {
-        if (i32(own) != cown) { if (cown >= 0) { flush(u32(cown), F, M); } cown = i32(own); F = vec3<f32>(0.0); M = vec3<f32>(0.0); }
+        if (i32(own) != cown) { if (cown >= 0) { flush(u32(cown), F, M, DD); } cown = i32(own); F = vec3<f32>(0.0); M = vec3<f32>(0.0); DD = 0.0; }
         let Fl = -(fo + fi) * e;
         let rr = X - vec3<f32>(misc[REFS + own * 4u], misc[REFS + own * 4u + 1u], misc[REFS + own * 4u + 2u]);
         F += Fl; M += cross(rr, Fl);
+        if ((cs & 3u) == 2u) { let ob = BODY + bodyOf(own) * 32u; let ra = dot(vec3<f32>(misc[ob + 4u], misc[ob + 5u], misc[ob + 6u]), cross(rr, e)); DD += 6.0 * W[i] * ra * ra; }
       }
       continue;
     }
@@ -127,7 +129,7 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
       }
     }
   }
-  if (cown >= 0) { flush(u32(cown), F, M); }
+  if (cown >= 0) { flush(u32(cown), F, M, DD); }
   var r = 0.0; var j = vec3<f32>(0.0);
   for (var i = 0u; i < 19u; i++) { r += f[i]; j += f[i] * vec3<f32>(f32(EX[i]), f32(EY[i]), f32(EZ[i])); }
   let u = j / r; let usq = 1.5 * dot(u, u);
@@ -172,15 +174,16 @@ const BODYK = COMMON + /* wgsl */`
 fn main() {
   let ramp = misc[GLOB + 1u];
   for (var b = 0u; b < p.nbody; b++) {
-    let o = BODY + b * 32u; let mode = u32(misc[o + 3u] + 0.5); let q = u32(misc[o + 7u]) * 6u;
+    let o = BODY + b * 32u; let mode = u32(misc[o + 3u] + 0.5); let q = u32(misc[o + 7u]) * 8u;
     let Mv = vec3<f32>(f32(atomicLoad(&acc[q + 3u])), f32(atomicLoad(&acc[q + 4u])), f32(atomicLoad(&acc[q + 5u]))) / ${M_SCALE}.0;
-    let T = dot(Mv, vec3<f32>(misc[o + 4u], misc[o + 5u], misc[o + 6u]));
+    let D = f32(atomicLoad(&acc[q + 6u])) / ${D_SCALE}.0;
+    let T = dot(Mv, vec3<f32>(misc[o + 4u], misc[o + 5u], misc[o + 6u])) + D * misc[o + 9u];
     var th = misc[o + 8u]; var w = misc[o + 9u];
     if (mode == 3u) { w = misc[o + 15u] * ramp; }
     else {
-      let Ia = misc[o + 27u]; let I = misc[o + 10u] + Ia; let K = misc[o + 11u]; let C = misc[o + 12u]; let wm = misc[o + 23u]; let wp = misc[o + 28u];
+      let Ia = misc[o + 27u] + 8.0 * D; let I = misc[o + 10u] + Ia; let K = misc[o + 11u]; let C = misc[o + 12u]; let wm = misc[o + 23u]; let wp = misc[o + 28u];
       misc[o + 28u] = w;
-      w = (I * w + T - K * th + Ia * (w - wp)) / (I + C + K);
+      w = (I * w + T - K * th + Ia * (w - wp)) / (I + C + K + D);
       w = clamp(w, -wm, wm);
     }
     th += w;
@@ -191,9 +194,10 @@ fn main() {
   for (var q = 0u; q < p.nobj * 6u; q++) {
     var s = ${F_SCALE}.0;
     if (q % 6u >= 3u) { s = ${M_SCALE}.0; }
-    misc[LOADS + q] = f32(atomicLoad(&acc[q])) / s;
-    atomicStore(&acc[q], 0);
+    misc[LOADS + q] += f32(atomicLoad(&acc[(q / 6u) * 8u + q % 6u])) / s;
   }
+  for (var q = 0u; q < p.nobj * 8u; q++) { atomicStore(&acc[q], 0); }
+  misc[GLOB + 2u] += 1.0;
   let st = misc[GLOB] + 1.0;
   misc[GLOB] = st;
   if (st < p.rampSteps) { misc[GLOB + 1u] = 0.5 * (1.0 - cos(3.14159265 * st / p.rampSteps)); } else { misc[GLOB + 1u] = 1.0; }
@@ -348,7 +352,7 @@ export class GPUSolver {
     const SU = GPUBufferUsage.STORAGE, CD = GPUBufferUsage.COPY_DST, CS = GPUBufferUsage.COPY_SRC;
     const mk = (size, usage = SU | CD | CS) => dev.createBuffer({ size: Math.max(16, Math.ceil(size / 16) * 16), usage });
     const rbar = mk(4 * N); dev.queue.writeBuffer(rbar, 0, new Float32Array(N).fill(1));
-    const fa = mk(need), fb = mk(need), cell = mk(4 * N), base = mk(4 * N), macro = mk(16 * N), misc = mk(4 * MISC), acc = mk(4 * 6 * MAX_OBJECTS);
+    const fa = mk(need), fb = mk(need), cell = mk(4 * N), base = mk(4 * N), macro = mk(16 * N), misc = mk(4 * MISC), acc = mk(4 * 8 * MAX_OBJECTS);
     const feq = new Float32Array(N * 19);
     for (let i = 0; i < 19; i++) feq.fill(W[i], i * N, (i + 1) * N);
     dev.queue.writeBuffer(fa, 0, feq); dev.queue.writeBuffer(fb, 0, feq);
@@ -443,6 +447,8 @@ export class GPUSolver {
     if (po) enc.copyBufferToBuffer(this.partBuf, 0, rd, sz, pz);
     enc.copyBufferToBuffer(this.misc, 0, rd, sz + pz, mz);
     dev.queue.submit([enc.finish()]);
+    dev.queue.writeBuffer(this.misc, 4 * (GLOB + 2), new Float32Array(1));
+    dev.queue.writeBuffer(this.misc, 4 * LOADS, new Float32Array(6 * MAX_OBJECTS));
     await rd.mapAsync(GPUMapMode.READ);
     const all = new Float32Array(rd.getMappedRange().slice(0));
     rd.unmap(); rd.destroy();
@@ -453,7 +459,7 @@ export class GPUSolver {
     for (let q = 0; q < this.nbody; q++) bodies.push([mi[BODY + q * 32 + 8], mi[BODY + q * 32 + 9]]);
     let div = this.lost;
     for (const arr of [X, Y, Z]) for (let k = 3; k < arr.length; k += 4 * 7) { const r = arr[k]; if (r !== r || r > 3 || (r < 0.2 && r !== 0)) div = true; }
-    return { step: Math.round(mi[GLOB]), X, Y, Z, parts, bodies, loads: mi.slice(LOADS, LOADS + 6 * this.S.nobj), diverged: div };
+    return { step: Math.round(mi[GLOB]), X, Y, Z, parts, bodies, loads: mi.slice(LOADS, LOADS + 6 * this.S.nobj).map((v) => v / Math.max(1, mi[GLOB + 2])), diverged: div };
   }
 
   destroy() {

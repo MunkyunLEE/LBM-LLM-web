@@ -49,7 +49,7 @@ export class CPUSolver {
     this.body = bb.B; this.occ = bb.occ; this.nbody = S.bodies.length;
     this.bodyOf = new Int16Array(256).fill(-1);
     S.bodies.forEach((b, i) => { this.bodyOf[b.owner] = i; });
-    this.acc = new Float64Array(6 * Math.max(1, S.nobj)); this.loads = new Float32Array(this.acc.length);
+    this.acc = new Float64Array(8 * Math.max(1, S.nobj)); this.loads = new Float32Array(6 * Math.max(1, S.nobj)); this.lsum = new Float64Array(this.loads.length); this.lcount = 0;
     this.step = 0; this.ramp = 0;
     this.off = EX.map((_, i) => EX[i] + Nx * EY[i] + Nx * Ny * EZ[i]);
     this.f = new Float64Array(19); this.fq = new Float64Array(19);
@@ -148,7 +148,7 @@ export class CPUSolver {
         const k = x + Nx * y + NxNy * z, c = cell[k];
         if (c & 3) { macro[4 * k] = 0; macro[4 * k + 1] = 0; macro[4 * k + 2] = 0; macro[4 * k + 3] = 0; return; }
         const border = yb || x === 0 || x === Nx - 1, pid = (c >> 10) & 255;
-        let cown = -1, fx = 0, fy = 0, fz = 0, mx = 0, my = 0, mz = 0;
+        let cown = -1, fx = 0, fy = 0, fz = 0, mx = 0, my = 0, mz = 0, dd = 0;
         for (let i = 0; i < 19; i++) {
           const sx = x - EX[i], sy = y - EY[i], sz = z - EZ[i];
           if (!border || (sx >= 0 && sx < Nx && sy >= 0 && sy < Ny && sz >= 0 && sz < Nz)) {
@@ -164,12 +164,17 @@ export class CPUSolver {
             f[i] = fi;
             if (own !== 255) {
               if (own !== cown) {
-                if (cown >= 0) { const q = cown * 6; acc[q] += fx; acc[q + 1] += fy; acc[q + 2] += fz; acc[q + 3] += mx; acc[q + 4] += my; acc[q + 5] += mz; }
-                cown = own; fx = fy = fz = mx = my = mz = 0;
+                if (cown >= 0) { const q = cown * 8; acc[q] += fx; acc[q + 1] += fy; acc[q + 2] += fz; acc[q + 3] += mx; acc[q + 4] += my; acc[q + 5] += mz; acc[q + 6] += dd; }
+                cown = own; fx = fy = fz = mx = my = mz = dd = 0;
               }
               const g = -(fo + fi), Fx = g * EX[i], Fy = g * EY[i], Fz = g * EZ[i];
               const rx = X - refs[own * 4], ry = Y - refs[own * 4 + 1], rz = Z - refs[own * 4 + 2];
               fx += Fx; fy += Fy; fz += Fz; mx += ry * Fz - rz * Fy; my += rz * Fx - rx * Fz; mz += rx * Fy - ry * Fx;
+              if ((cs & 3) === 2) {
+                const bo = this.bodyOf[own] * 32, B = this.body;
+                const ra = B[bo + 4] * (ry * EZ[i] - rz * EY[i]) + B[bo + 5] * (rz * EX[i] - rx * EZ[i]) + B[bo + 6] * (rx * EY[i] - ry * EX[i]);
+                dd += 6 * W[i] * ra * ra;
+              }
             }
             continue;
           }
@@ -199,7 +204,7 @@ export class CPUSolver {
             else f[i] = ok ? A[i * N + ts] : A[i * N + k];
           }
         }
-        if (cown >= 0) { const q = cown * 6; acc[q] += fx; acc[q + 1] += fy; acc[q + 2] += fz; acc[q + 3] += mx; acc[q + 4] += my; acc[q + 5] += mz; }
+        if (cown >= 0) { const q = cown * 8; acc[q] += fx; acc[q + 1] += fy; acc[q + 2] += fz; acc[q + 3] += mx; acc[q + 4] += my; acc[q + 5] += mz; acc[q + 6] += dd; }
         let r = 0, jx = 0, jy = 0, jz = 0;
         for (let i = 0; i < 19; i++) { const v = f[i]; r += v; jx += v * EX[i]; jy += v * EY[i]; jz += v * EZ[i]; }
         const ux = jx / r, uy = jy / r, uz = jz / r, usq = 1.5 * (ux * ux + uy * uy + uz * uz);
@@ -239,14 +244,14 @@ export class CPUSolver {
   bodyStep() {
     const { body, acc, loads, S } = this;
     for (let b = 0; b < this.nbody; b++) {
-      const o = b * 32, mode = body[o + 3], own = body[o + 7], q = own * 6;
-      const T = acc[q + 3] * body[o + 4] + acc[q + 4] * body[o + 5] + acc[q + 5] * body[o + 6];
+      const o = b * 32, mode = body[o + 3], own = body[o + 7], q = own * 8;
+      const D = acc[q + 6], T = acc[q + 3] * body[o + 4] + acc[q + 4] * body[o + 5] + acc[q + 5] * body[o + 6] + D * body[o + 9];
       let th = body[o + 8], w = body[o + 9];
       if (mode === 3) w = body[o + 15] * this.ramp;
       else {
-        const I = body[o + 10] + body[o + 27], K = body[o + 11], C = body[o + 12], wm = body[o + 23], wp = body[o + 28];
+        const Ia = body[o + 27] + 8 * D, I = body[o + 10] + Ia, K = body[o + 11], C = body[o + 12], wm = body[o + 23], wp = body[o + 28];
         body[o + 28] = w;
-        w = (I * w + T - K * th + body[o + 27] * (w - wp)) / (I + C + K);
+        w = (I * w + T - K * th + Ia * (w - wp)) / (I + C + K + D);
         w = Math.max(-wm, Math.min(wm, w));
       }
       th += w;
@@ -254,7 +259,9 @@ export class CPUSolver {
       if (th > body[o + 14]) { th = body[o + 14]; w = 0; }
       body[o + 8] = th; body[o + 9] = w;
     }
-    for (let j = 0; j < acc.length; j++) { loads[j] = acc[j]; acc[j] = 0; }
+    for (let j = 0; j < loads.length; j++) { loads[j] = acc[(j / 6 | 0) * 8 + j % 6]; this.lsum[j] += loads[j]; }
+    this.lcount++;
+    acc.fill(0);
     this.step++;
     const rs = S.rampSteps;
     this.ramp = this.step < rs ? 0.5 * (1 - Math.cos(Math.PI * this.step / rs)) : 1;
@@ -286,7 +293,9 @@ export class CPUSolver {
       advectCPU(this.macro, this.Nx, this.Ny, this.Nz, this.parts, this.S.emitters, po);
     }
     const s = this.slices(sl[0], sl[1], sl[2]);
-    return { step: this.step, ...s, parts: po ? this.parts.slice() : null, bodies: this.bodyState(), loads: this.loads.slice(), diverged: this.diverged() };
+    const out = { step: this.step, ...s, parts: po ? this.parts.slice() : null, bodies: this.bodyState(), loads: Float32Array.from(this.lsum, (v) => v / Math.max(1, this.lcount)), diverged: this.diverged() };
+    this.lsum.fill(0); this.lcount = 0;
+    return out;
   }
 
   resetParts() { this.parts = null; }

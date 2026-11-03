@@ -9,7 +9,7 @@ export const OPP = [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15, 18
 export const FACES = ['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'];
 export const BC = { wall: 0, slip: 1, velocity: 2, pressure: 3, outflow: 4 };
 export const MODE = { off: 0, free: 1, hinge: 2, drive: 3 };
-export const F_SCALE = 1048576, M_SCALE = 262144;
+export const F_SCALE = 1048576, M_SCALE = 262144, D_SCALE = 512;
 export const CPU_MAX = 1000000, GPU_MAX = 8000000;
 export const MAX_BODIES = 8, MAX_PATCHES = 60, MAX_OBJECTS = 64;
 const PRESET = { I: { low: 0.5, mid: 2, high: 8 }, K: { soft: 0.2, mid: 1, stiff: 5 }, C: { low: 0.05, mid: 0.3, high: 1.5 } };

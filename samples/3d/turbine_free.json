@@ -26,7 +26,7 @@
  "Ly": 2400,
  "Lz": 2400,
  "Nx": 100,
- "duration": 6,
+ "duration": 12,
  "ramp": 1,
  "faces": {
   "xmin": {
