@@ -228,6 +228,7 @@
     <div class="slicerow"><label class="check"><input id="slX" type="checkbox"> X 단면</label><input id="slXv" type="range" min="0" max="1000" value="350"><span id="slXt" class="mono"></span></div>
     <div class="slicerow"><label class="check"><input id="slY" type="checkbox" checked> Y 단면</label><input id="slYv" type="range" min="0" max="1000" value="500"><span id="slYt" class="mono"></span></div>
     <div class="slicerow"><label class="check"><input id="slZ" type="checkbox"> Z 단면</label><input id="slZv" type="range" min="0" max="1000" value="500"><span id="slZt" class="mono"></span></div>
+    <div class="slicerow densrow"><span class="dl">유선 밀도</span><input id="inSdens" type="range" min="1" max="10" step="1" value="4"><span id="inSdensT" class="mono"></span></div>
     <div class="grid3">
       <label>벡터 간격<input id="inStride" type="number" min="1" max="32" value="3"></label>
       <label>유선 단면<select id="inStreamPlane"><option value="Y">Y</option><option value="Z">Z</option><option value="X">X</option></select></label>
@@ -239,7 +240,6 @@
     </div>
     <h3>3D 분석 <span class="sub">현재 계산 상태 기준</span></h3>
     <div class="grid3">
-      <label>유선 수<input id="inS3n" type="number" min="20" max="2000" step="20" value="150"></label>
       <label>Q 수준 <em>%</em><input id="inQf" type="number" min="0.5" max="100" step="0.5" value="8"></label>
       <label class="check q3mean"><input id="chkAnMean" type="checkbox"> 평균장</label>
     </div>

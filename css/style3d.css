@@ -36,3 +36,4 @@ header { gap: 14px; }
 .face-sub { display: grid; grid-template-columns: 44px 84px 1.3fr 1fr 0.9fr; gap: 5px; align-items: center; margin: -2px 0 8px; }
 .face-sub span { font-size: 10px; color: var(--muted); }
 .face-sub input, .face-sub select { height: 24px; margin: 0; font-size: 11px; }
+.densrow .dl { font-size: 11px; color: var(--muted); text-align: left; }

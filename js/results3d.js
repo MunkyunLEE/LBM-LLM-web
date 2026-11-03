@@ -92,11 +92,11 @@ export function planeVectors(fr, P, prm, stride) {
   return out;
 }
 
-export function planeStreams(fr, P, prm) {
+export function planeStreams(fr, P, prm, density = 4) {
   const d = fr[P], [w, h] = planeDims(P, prm), [ia, ib] = INPLANE[P], n = w * h, idx = fr.idx['XYZ'.indexOf(P)];
   const ua = new Float32Array(n), ub = new Float32Array(n), solid = new Uint8Array(n);
   for (let k = 0; k < n; k++) { if (d.r[k] === -32768) { solid[k] = 1; continue; } ua[k] = d.u[3 * k + ia]; ub[k] = d.u[3 * k + ib]; }
-  const lines = streamlines(ua, ub, solid, w, h, Math.max(3, Math.round(Math.max(w, h) / 40))), out = [];
+  const lines = streamlines(ua, ub, solid, w, h, Math.max(1, Math.max(w, h) / 10 * Math.pow(Math.min(1, 12 / Math.max(w, h)), (density - 1) / 9))), out = [];
   for (const ln of lines) for (let q = 0; q + 1 < ln.length; q++) out.push(...to3(P, idx, ln[q][0], ln[q][1], prm.dxmm), ...to3(P, idx, ln[q + 1][0], ln[q + 1][1], prm.dxmm));
   return out;
 }

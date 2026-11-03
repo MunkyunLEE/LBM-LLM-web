@@ -38,12 +38,12 @@ function trace(ux, uy, solid, Nx, Ny, x0, y0, dir, h, maxSteps, occ, ocSize, ocC
 }
 
 export function streamlines(ux, uy, solid, Nx, Ny, spacingCells) {
-  const ocSize = Math.max(2, spacingCells / 2), ocCols = Math.ceil(Nx / ocSize), ocRows = Math.ceil(Ny / ocSize);
+  const ocSize = Math.max(1, spacingCells / 2), ocCols = Math.ceil(Nx / ocSize), ocRows = Math.ceil(Ny / ocSize);
   const occ = new Uint8Array(ocCols * ocRows);
   let umax = 0;
   for (let k = 0; k < ux.length; k++) umax = Math.max(umax, Math.hypot(ux[k], uy[k]));
   const umin = umax * 0.01, lines = [], maxSteps = 4 * (Nx + Ny);
-  const seedStep = Math.max(2, spacingCells);
+  const seedStep = Math.max(1, spacingCells);
   for (let sy = seedStep / 2; sy < Ny; sy += seedStep) {
     for (let sx = seedStep / 2; sx < Nx; sx += seedStep) {
       const ci = Math.floor(sx / ocSize), cj = Math.floor(sy / ocSize);

@@ -10,6 +10,28 @@ function post(type, data = {}, transfer = []) {
   self.postMessage({ type, ...data }, transfer);
 }
 
+function seedPoints(F, d, count) {
+  const out = [], faces = [];
+  for (let fc = 0; fc < 6; fc++) if (S.bcf[fc * 8] === 2) faces.push(fc);
+  const fluid = (x, y, z) => { const i = Math.floor(x), j = Math.floor(y), k = Math.floor(z); return i >= 0 && j >= 0 && k >= 0 && i < d.Nx && j < d.Ny && k < d.Nz && F[4 * (i + d.Nx * (j + d.Ny * k)) + 3] > 0; };
+  const N = [d.Nx, d.Ny, d.Nz];
+  if (faces.length) {
+    const per = Math.max(4, Math.ceil(count / faces.length));
+    for (const fc of faces) {
+      const a = fc >> 1, ua = a === 0 ? 1 : 0, va = a === 2 ? 1 : 2, nu = N[ua], nv = N[va], step = Math.max(0.5, Math.sqrt(nu * nv / per));
+      for (let v = step / 2; v < nv; v += step) for (let u = step / 2; u < nu; u += step) {
+        const p = [0, 0, 0]; p[a] = fc & 1 ? N[a] - 1.5 : 1.5; p[ua] = u; p[va] = v;
+        if (fluid(...p)) out.push(p[0], p[1], p[2], 0);
+      }
+    }
+  }
+  for (let t = 0; out.length / 4 < Math.min(count, 40) && t < count * 20; t++) {
+    const p = [Math.random() * d.Nx, Math.random() * d.Ny, Math.random() * d.Nz];
+    if (fluid(...p)) out.push(p[0], p[1], p[2], 0);
+  }
+  return new Float32Array(out);
+}
+
 function pack(fr) {
   const enc = (a) => {
     const n = a.length / 4, u = new Int16Array(3 * n), r = new Int16Array(n);
@@ -128,7 +150,7 @@ self.onmessage = async (ev) => {
       }
       if (m.kind === 'qiso' && S.N > 3e6) { const c2 = coarsen(F, dims.Nx, dims.Ny, dims.Nz); F = c2.F; dims = c2; scale = 2; }
       if (m.kind === 'stream') {
-        const r = streamlines3d(F, dims.Nx, dims.Ny, dims.Nz, S.emitters, +m.count || 300), pts = [], spd = [];
+        const seeds = seedPoints(F, dims, +m.count || 200), r = streamlines3d(F, dims.Nx, dims.Ny, dims.Nz, seeds, seeds.length / 4), pts = [], spd = [];
         for (const ln of r.lines) for (let i = 0; i + 1 < ln.spd.length; i++) { pts.push(ln.pts[3 * i], ln.pts[3 * i + 1], ln.pts[3 * i + 2], ln.pts[3 * i + 3], ln.pts[3 * i + 4], ln.pts[3 * i + 5]); spd.push(ln.spd[i], ln.spd[i + 1]); }
         const P = new Float32Array(pts), V = new Float32Array(spd);
         post('stream3d', { pos: P, spd: V, umax: r.umax, lines: r.lines.length }, [P.buffer, V.buffer]);

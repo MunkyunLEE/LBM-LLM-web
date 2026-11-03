@@ -124,12 +124,46 @@ function rebuildScene() {
   view.setProbes(S.probes, g.dxmm);
   view.setObjects(S.objects.map((o) => ({ ...o, mesh: meshOf(o) })), sel);
   if (voxCells && $('chkVox').checked) showVoxels(); else view.setVoxels(null);
+  scheduleGuides();
 }
 
 function updateObjView(i) {
   const o = S.objects[i];
   view.objList[i] = { ...o, mesh: meshOf(o) };
   view.updateObject(i, view.objList[i]);
+  scheduleGuides();
+}
+
+let guideTimer = null;
+function scheduleGuides() { clearTimeout(guideTimer); guideTimer = setTimeout(updateGuides, 40); }
+
+function updateGuides() {
+  if (!view) return;
+  const g = g3(), idx = sliceIdx(), prm = { Nx: g.Nx, Ny: g.Ny, Nz: g.Nz, dxmm: g.dxmm }, planes = [], cuts = [];
+  'XYZ'.split('').forEach((P, a) => {
+    if (!S.view.slices[P].on) return;
+    planes.push({ axis: P, quad: planeQuad(P, idx[a], prm) });
+    const c = S.origin[a] + (idx[a] + 0.5) * g.dxmm, segs = [];
+    const lo = [0, 1, 2].map((d) => S.origin[d]), hi = [g.Lx, g.Ly, g.Lz].map((L, d) => S.origin[d] + L);
+    for (const o of S.objects) {
+      const v = objectVerts(o), f = meshOf(o).f;
+      for (let t = 0; t < f.length; t += 3) {
+        const P3 = [f[t] * 3, f[t + 1] * 3, f[t + 2] * 3], dv = P3.map((q) => v[q + a] - c), hit = [];
+        for (let e = 0; e < 3; e++) {
+          const p = P3[e], q = P3[(e + 1) % 3], da = dv[e], db = dv[(e + 1) % 3];
+          if ((da > 0) === (db > 0) || da === db) continue;
+          const s = da / (da - db);
+          hit.push([v[p] + s * (v[q] - v[p]), v[p + 1] + s * (v[q + 1] - v[p + 1]), v[p + 2] + s * (v[q + 2] - v[p + 2])]);
+        }
+        if (hit.length !== 2) continue;
+        const inside = (h) => h.every((x, d) => d === a || (x >= lo[d] - 1e-6 && x <= hi[d] + 1e-6));
+        if (S.clip !== false && !inside(hit[0]) && !inside(hit[1])) continue;
+        segs.push(...hit[0], ...hit[1]);
+      }
+    }
+    cuts.push({ axis: P, segs });
+  });
+  view.setSliceGuides(planes, cuts);
 }
 
 function buildFaceRows() {
@@ -264,7 +298,7 @@ function bindInputs() {
   num('inDx', (v) => { if (v > 0) { S.dx = v; changed(); } });
   $('btnFitL').onclick = () => { const g = g3(); S.Lx = g.Lx; S.Ly = g.Ly; S.Lz = g.Lz; $('inLx').value = S.Lx; $('inLy').value = S.Ly; $('inLz').value = S.Lz; changed(); };
   for (const [id, d] of [['inOx', 0], ['inOy', 1], ['inOz', 2]]) num(id, (v) => { S.origin[d] = v; changed(); });
-  $('chkClip').onchange = () => { S.clip = $('chkClip').checked; view.setClip(S.clip); };
+  $('chkClip').onchange = () => { S.clip = $('chkClip').checked; view.setClip(S.clip); scheduleGuides(); };
   num('inAvg', (v) => { S.avgStart = Math.max(0, v); });
   $('btnDomToObj').onclick = () => {
     const o = cur0();
@@ -474,7 +508,7 @@ function refreshResult() {
   view.setSliceMeshes(pfs.map((pf, q) => ({ w: pf.w, h: pf.h, rgba: toRGBA(pf, field, lo, hi, solidRGB), quad: planeQuad(planes[q], fr.idx['XYZ'.indexOf(planes[q])], prm) })));
   const vc = light ? 0x111827 : 0xf2f5fa;
   if ($('chkVec').checked) { const segs = []; for (const P of planes) segs.push(...planeVectors(fr, P, prm, Math.max(1, +v.stride))); view.setLines('vectors', segs, vc, 0.9); } else view.setLines('vectors', null);
-  if ($('chkStream').checked && v.slices[v.streamPlane].on) view.setLines('streams', planeStreams(fr, v.streamPlane, prm), light ? 0x0f172a : 0xffffff, 0.85); else view.setLines('streams', null);
+  if ($('chkStream').checked && v.slices[v.streamPlane].on) view.setLines('streams', planeStreams(fr, v.streamPlane, prm, +$('inSdens').value), light ? 0x0f172a : 0xffffff, 0.85); else view.setLines('streams', null);
   if ($('chkPart').checked) { const [pos, col] = particleBuffers(fr, prm, (S.u_lat_max || 0.06) * 1.1); view.setParticles(pos, col, +v.psize); } else view.setParticles(null);
   const ang = new Map();
   run.kinIdx.forEach((oi, b) => { if (fr.bodies[b]) ang.set(oi, fr.bodies[b][0]); });
@@ -712,7 +746,7 @@ async function makeGif() {
 }
 
 function bindAnalysis() {
-  const go = (kind) => { $('anInfo').textContent = '계산 중…'; worker.postMessage({ cmd: 'analyze', kind, mean: $('chkAnMean').checked, count: +$('inS3n').value, frac: +$('inQf').value / 100 }); if (S.mode !== 'result') setMode('result'); };
+  const go = (kind) => { $('anInfo').textContent = '계산 중…'; worker.postMessage({ cmd: 'analyze', kind, mean: $('chkAnMean').checked, count: Math.round(30 * 1.45 ** +$('inSdens').value), frac: +$('inQf').value / 100 }); if (S.mode !== 'result') setMode('result'); };
   $('btnS3').onclick = () => go('stream');
   $('btnQ').onclick = () => go('qiso');
   $('btnVtk').onclick = () => go('vtk');
@@ -740,13 +774,21 @@ function bindView() {
   $('inPsize').onchange = () => { S.view.psize = +$('inPsize').value; refreshResult(); };
   let slTimer = null;
   for (const P of 'XYZ') {
-    $(`sl${P}`).onchange = () => { S.view.slices[P].on = $(`sl${P}`).checked; refreshResult(); };
+    $(`sl${P}`).onchange = () => { S.view.slices[P].on = $(`sl${P}`).checked; refreshResult(); scheduleGuides(); };
     $(`sl${P}v`).oninput = () => {
-      S.view.slices[P].f = +$(`sl${P}v`).value / 1000; updateSliceText();
+      S.view.slices[P].f = +$(`sl${P}v`).value / 1000; updateSliceText(); scheduleGuides();
       clearTimeout(slTimer);
       slTimer = setTimeout(() => worker.postMessage({ cmd: 'slices', idx: sliceIdx() }), 120);
     };
   }
+  const densText = () => { const d = +$('inSdens').value; $('inSdensT').textContent = d <= 3 ? `${d} 낮음` : d <= 7 ? `${d} 중간` : `${d} 높음`; };
+  densText();
+  let densTimer = null;
+  $('inSdens').oninput = () => {
+    densText(); refreshResult();
+    clearTimeout(densTimer);
+    if (view.groups.stream3d.children.length) densTimer = setTimeout(() => $('btnS3').click(), 400);
+  };
   $('playSlider').oninput = () => { cur = +$('playSlider').value; refreshResult(); drawLoadChart(); };
   $('btnPlay').onclick = () => {
     if (playing) { clearInterval(playing); playing = null; $('btnPlay').textContent = '▶'; return; }

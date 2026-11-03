@@ -35,8 +35,8 @@ export class View3D {
     this.groups = {};
     this.local = new THREE.Group();
     this.scene.add(this.local);
-    for (const k of ['domain', 'grid', 'bc', 'voxels', 'slices', 'vectors', 'streams', 'parts', 'stream3d', 'iso', 'probes']) { this.groups[k] = new THREE.Group(); this.local.add(this.groups[k]); }
-    for (const k of ['objects', 'helpers']) { this.groups[k] = new THREE.Group(); this.scene.add(this.groups[k]); }
+    for (const k of ['domain', 'grid', 'bc', 'voxels', 'guides', 'slices', 'vectors', 'streams', 'parts', 'stream3d', 'iso', 'probes']) { this.groups[k] = new THREE.Group(); this.local.add(this.groups[k]); }
+    for (const k of ['objects', 'helpers', 'guideCut']) { this.groups[k] = new THREE.Group(); this.scene.add(this.groups[k]); }
     this.renderer.localClippingEnabled = true;
     this.clipPlanes = [];
     this.origin = [0, 0, 0];
@@ -232,6 +232,8 @@ export class View3D {
   setMode(mode) {
     this.mode = mode;
     for (const k of ['slices', 'vectors', 'streams', 'parts', 'stream3d', 'iso']) this.groups[k].visible = mode === 'result';
+    this.groups.guides.visible = mode === 'edit';
+    this.groups.guideCut.visible = mode === 'edit';
     this.meshes.forEach((_, i) => this.applyBodyRot(i));
     this.buildHelpers();
   }
@@ -433,6 +435,26 @@ export class View3D {
       new THREE.Plane(new THREE.Vector3(0, 1, 0), -o[1]), new THREE.Plane(new THREE.Vector3(0, -1, 0), o[1] + Ly),
       new THREE.Plane(new THREE.Vector3(0, 0, 1), -o[2]), new THREE.Plane(new THREE.Vector3(0, 0, -1), o[2] + Lz)] : [];
     for (const m of this.meshes || []) { m.mesh.material.clippingPlanes = this.clipPlanes; m.mesh.material.needsUpdate = true; }
+  }
+
+  setSliceGuides(planes, cuts) {
+    this.clear('guides'); this.clear('guideCut');
+    const COL = { X: 0xe5534b, Y: 0x3fb950, Z: 0x4f8cff };
+    for (const p of planes) {
+      const q = p.quad.map((a) => new THREE.Vector3(...a)), col = COL[p.axis];
+      const mesh = new THREE.Mesh(quadGeom(...q), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false }));
+      mesh.renderOrder = 1;
+      this.groups.guides.add(mesh);
+      const [p0, pu, pv] = q, c = [p0, p0.clone().add(pu), p0.clone().add(pu).add(pv), p0.clone().add(pv)];
+      this.groups.guides.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(c), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.8 })));
+    }
+    for (const c of cuts) {
+      if (!c.segs.length) continue;
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(c.segs, 3));
+      const ln = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: this.light ? 0xd97706 : 0xffd166, depthTest: false }));
+      ln.renderOrder = 8;
+      this.groups.guideCut.add(ln);
+    }
   }
 
   setProbes(list, dxmm) {
