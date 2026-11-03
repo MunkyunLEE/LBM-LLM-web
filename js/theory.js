@@ -150,7 +150,7 @@ function render() {
   const sph = Object.keys(R).filter((k) => /^3d_sphere_\d+$/.test(k)).map((k) => R[k]).sort((a, b) => a.Re - b.Re);
   const sphHw = Object.keys(R).filter((k) => /^3d_sphere_\d+_hw$/.test(k)).map((k) => R[k]).sort((a, b) => a.Re - b.Re);
   if (sph.length) {
-    const c = vcase('v-sph', '3D-3 구 주위 흐름: 항력계수 C_d(Re)', `D = ${sph[0].D}셀, 도메인 15D × 6D × 6D (막힘비 2%), 미끄럼 측벽. Schiller–Naumann 경험식 \\(C_d = \\tfrac{24}{Re}(1+0.15Re^{0.687})\\)과 비교.`);
+    const c = vcase('v-sph', '3D-3 구 주위 흐름: 항력계수 C_d(Re)', `D = ${sph[0].D}셀, 도메인 ${sph[0].grid[0] / sph[0].D}D × ${sph[0].grid[1] / sph[0].D}D × ${sph[0].grid[2] / sph[0].D}D (상류 5.5D, 막힘비 2%), 미끄럼 측벽, 보간 bounce-back. 이전 halfway 결과는 상류 4.5D 도메인입니다. Schiller–Naumann 경험식 \\(C_d = \\tfrac{24}{Re}(1+0.15Re^{0.687})\\)과 비교.`);
     const curve = []; for (let lr = 1; lr <= 2.6; lr += 0.02) { const Re = 10 ** lr; curve.push([Re, 24 / Re * (1 + 0.15 * Re ** 0.687)]); }
     chart(c.add(), { title: '항력계수 C_d vs Re', xlabel: 'Re', ylabel: 'C_d', logx: true, xlim: [10, 400], series: [{ name: 'Schiller–Naumann', kind: 'line', color: S2, pts: curve }, { name: 'LBM 보간 bounce-back', kind: 'dots', color: S1, pts: sph.map((s) => [s.Re, s.cd]), r: 6 }, ...(sphHw.length ? [{ name: '이전 halfway bounce-back', kind: 'dots', color: S3, hollow: true, pts: sphHw.map((s) => [s.Re, s.cd]), r: 5 }] : [])] });
     const last = sph.find((s) => s.Re === 100) || sph[0];
