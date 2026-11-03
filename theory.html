@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LBM Flow Lab Theory</title>
+<meta name="description" content="LBM Flow Lab의 이론식, 구현 방법, 문헌 벤치마크 대비 검증 결과">
+<script>
+(() => {
+  let pref = 'system';
+  try { pref = localStorage.getItem('lbm-theme') || 'system'; } catch (_) {}
+  const light = pref === 'light' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+})();
+</script>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="js/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="css/theory.css">
+</head>
+<body class="theory">
+<header>
+  <div class="brand"><span class="logo">◩</span> LBM Flow Lab <small>Theory · 이론 · 구현 · 검증</small></div>
+  <nav class="dimnav"><a href="index.html">2D</a><a href="3d.html">3D</a><a class="on" href="theory.html">Theory</a></nav>
+  <div class="status"></div>
+  <div class="hdr-actions"><button id="btnTheme" class="ghost theme-btn" title="테마: 시스템 설정">◐</button></div>
+</header>
+
+<div class="tlayout">
+<nav class="toc" id="toc">
+  <b>목차</b>
+  <a href="#overview">1. 개요</a>
+  <a href="#lattice">2. 격자와 이산 속도</a>
+  <a href="#lbgk">3. 격자 볼츠만 방정식</a>
+  <a href="#collision">4. 정칙화 충돌 · LES</a>
+  <a href="#units">5. 단위 변환 · 안정성</a>
+  <a href="#bc">6. 경계조건</a>
+  <a href="#abl">7. 대기경계층 유입</a>
+  <a href="#loads">8. 물체 하중</a>
+  <a href="#fsi">9. 간이 FSI</a>
+  <a href="#post">10. 후처리</a>
+  <a href="#gpu">11. GPU 구현</a>
+  <a href="#valid">12. 검증</a>
+  <a href="#v-summary" class="sub">요약표</a>
+  <a href="#v-pois" class="sub">2D 평행판 유동</a>
+  <a href="#v-cav100" class="sub">2D 캐비티</a>
+  <a href="#v-cyl" class="sub">2D 원기둥</a>
+  <a href="#v-duct" class="sub">3D 정사각 덕트</a>
+  <a href="#v-pipe" class="sub">3D 원관</a>
+  <a href="#v-sph" class="sub">3D 구</a>
+  <a href="#refs">13. 참고문헌</a>
+</nav>
+
+<main class="tmain">
+<section id="overview">
+  <h1>LBM Flow Lab 이론과 구현</h1>
+  <p class="lead">이 시뮬레이터는 Navier–Stokes 방정식을 직접 풀지 않고, 유체를 <b>격자 위를 움직이며 충돌하는 입자 분포</b>로 다루는 격자 볼츠만법(Lattice Boltzmann Method, LBM)을 씁니다. 이 페이지는 사용한 식, 그 식을 코드로 옮긴 방법, 그리고 문헌의 해석해·벤치마크와 비교한 결과를 정리합니다.</p>
+  <div class="callout">
+    <b>계산 흐름 (매 시간 스텝)</b>
+    <ol>
+      <li><b>스트리밍:</b> 이웃 셀에서 이 셀로 들어오는 분포 \(f_i\)를 가져옵니다. 이때 벽·유입·유출 경계를 적용합니다.</li>
+      <li><b>거시량:</b> \(\rho = \sum f_i\), \(\rho\mathbf u = \sum f_i \mathbf e_i\)를 계산합니다.</li>
+      <li><b>충돌:</b> 평형분포 쪽으로 이완합니다(정칙화 BGK + LES).</li>
+      <li><b>하중 · 강체 운동:</b> 물체 표면 링크에서 운동량 교환으로 힘·토크를 구하고, 움직이는 물체의 각도를 갱신한 뒤 물체를 다시 복셀화합니다.</li>
+    </ol>
+  </div>
+  <p>2D는 D2Q9, 3D는 D3Q19 격자를 쓰며, 3D는 브라우저의 WebGPU 컴퓨트 셰이더(없으면 CPU JavaScript)로 계산합니다. 모든 식 옆에 해당 구현 파일을 적었습니다.</p>
+</section>
+
+<section id="lattice">
+  <h2>2. 격자와 이산 속도</h2>
+  <p>공간은 크기 \(\Delta x\)의 정사각형(2D)·정육면체(3D) 셀로 나눕니다. 셀마다 유한한 개수의 이산 속도 \(\mathbf e_i\)와 그 방향으로 움직이는 입자 분포 \(f_i(\mathbf x, t)\)를 둡니다. 셀 크기는 모든 축에서 같아야 이산 속도가 대칭이 되므로, 3D 화면에서는 \(\Delta x\)를 직접 입력하고 \(N_x, N_y, N_z = L/\Delta x\)를 계산합니다.</p>
+  <div class="grid2c">
+    <div class="card">
+      <h4>D2Q9 <span class="file">js/lbm/solver.js</span></h4>
+      $$\mathbf e_i \in \{(0,0),\ (\pm1,0),(0,\pm1),\ (\pm1,\pm1)\}$$
+      $$w_0=\tfrac49,\quad w_{1..4}=\tfrac19,\quad w_{5..8}=\tfrac1{36}$$
+    </div>
+    <div class="card">
+      <h4>D3Q19 <span class="file">js/lbm3d/setup.js</span></h4>
+      $$\mathbf e_i \in \{\mathbf 0,\ (\pm1,0,0)\text{ 등 6},\ (\pm1,\pm1,0)\text{ 등 12}\}$$
+      $$w_0=\tfrac13,\quad w_{1..6}=\tfrac1{18},\quad w_{7..18}=\tfrac1{36}$$
+    </div>
+  </div>
+  <p>격자 음속은 \(c_s^2 = 1/3\) (격자 단위)이며, 압력은 \(p = c_s^2\rho\)로 밀도와 연결됩니다. 셀 중심 좌표는 \(x_i = (i+\tfrac12)\Delta x\)입니다.</p>
+</section>
+
+<section id="lbgk">
+  <h2>3. 격자 볼츠만 방정식</h2>
+  <p>볼츠만 방정식을 이산 속도와 BGK 충돌 모델로 근사하면 다음 갱신식을 얻습니다.</p>
+  $$f_i(\mathbf x + \mathbf e_i\Delta t,\ t+\Delta t) = f_i(\mathbf x,t) - \frac{1}{\tau}\Big[f_i(\mathbf x,t) - f_i^{eq}(\mathbf x,t)\Big]$$
+  <p>평형분포는 Maxwell–Boltzmann 분포를 속도에 대해 2차까지 전개한 것입니다.</p>
+  $$f_i^{eq} = w_i\,\rho\left[1 + \frac{\mathbf e_i\cdot\mathbf u}{c_s^2} + \frac{(\mathbf e_i\cdot\mathbf u)^2}{2c_s^4} - \frac{\mathbf u\cdot\mathbf u}{2c_s^2}\right]$$
+  <p>거시량은 분포의 모멘트입니다.</p>
+  $$\rho = \sum_i f_i,\qquad \rho\mathbf u = \sum_i f_i\,\mathbf e_i$$
+  <p>Chapman–Enskog 전개로 이 식이 마하수가 작을 때 압축성 Navier–Stokes 방정식을 재현하고, 동점성계수가 이완 시간과 다음 관계를 가짐을 보일 수 있습니다.</p>
+  $$\nu = c_s^2\left(\tau - \tfrac12\right)\frac{\Delta x^2}{\Delta t}$$
+  <p class="note">구현은 스트리밍과 충돌을 한 번에 하는 <b>pull 방식</b>입니다. 셀마다 이웃 \(\mathbf x - \mathbf e_i\)의 충돌 후 값을 읽어 오고, 충돌 결과를 두 번째 버퍼에 씁니다. 두 버퍼는 매 스텝 교대합니다. <span class="file">js/lbm3d/gpu.js · cpu.js</span></p>
+</section>
+
+<section id="collision">
+  <h2>4. 정칙화 충돌과 LES</h2>
+  <h3>정칙화(Regularized) BGK</h3>
+  <p>공기·물처럼 점성이 작으면 \(\tau\)가 0.5에 가까워져 BGK가 불안정해집니다. 그래서 비평형 부분을 2차 모멘트(응력)만으로 다시 구성해, 고차 잡음을 걸러 냅니다.</p>
+  $$\Pi^{neq}_{\alpha\beta} = \sum_i e_{i\alpha}e_{i\beta}\,(f_i - f_i^{eq}),\qquad
+  f_i^{neq,reg} = \frac{w_i}{2c_s^4}\,\big(e_{i\alpha}e_{i\beta} - c_s^2\delta_{\alpha\beta}\big)\,\Pi^{neq}_{\alpha\beta}$$
+  $$f_i^{*} = f_i^{eq} + \Big(1-\frac1\tau\Big)\,f_i^{neq,reg}$$
+  <h3>Smagorinsky LES</h3>
+  <p>격자보다 작은 난류 에디의 효과는 와점성 \(\nu_t = (C_s\Delta)^2|\bar S|\)로 넣습니다. LBM에서는 국소 응력 \(\Pi^{neq}\)로 변형률을 구할 수 있어, 셀마다 유효 이완 시간을 닫힌 식으로 계산합니다.</p>
+  $$\tau_{eff} = \frac12\left(\tau_0 + \sqrt{\tau_0^2 + \frac{18\sqrt2\,C_s^2\,\lVert\Pi^{neq}\rVert}{\rho}}\right),\qquad C_s = 0.15$$
+  <p class="note">LES는 고 Re 계산을 안정화하지만, 벽 근처 해상도가 부족하면 벽 마찰은 정확하지 않습니다. 검증 케이스는 층류라 LES를 끄고 계산했습니다.</p>
+</section>
+
+<section id="units">
+  <h2>5. 단위 변환과 안정성</h2>
+  <p>격자 단위(\(\Delta x = \Delta t = 1\))와 물리 단위는 세 가지 선택으로 연결됩니다.</p>
+  $$\Delta x = \frac{L}{N},\qquad \Delta t = u_{lat,max}\,\frac{\Delta x}{U_{max}},\qquad \tau_0 = 3\,\nu\,\frac{\Delta t}{\Delta x^2} + \frac12$$
+  <ul>
+    <li>\(U_{max}\)는 유입 속도(대기경계층 분포의 최댓값 포함)와 구동 객체의 날개 끝 속도 중 가장 큰 값입니다.</li>
+    <li>\(u_{lat,max}\) (기본 0.06)은 격자 마하수 \(Ma = u_{lat}/c_s\)를 0.1 정도로 묶어, 압축성 오차를 \(O(Ma^2)\approx 1\%\) 이하로 유지합니다.</li>
+    <li>속도 경계는 해석 초반 \(t_{ramp}\) 동안 \(\tfrac12(1-\cos\pi t/t_{ramp})\)로 서서히 올려, 시작 순간의 압력파를 줄입니다.</li>
+  </ul>
+  <p>물리량 변환: 속도 \(u = u_{lat}\,\Delta x/\Delta t\), 압력 \(p = (\rho_{lat}-1)\,c_s^2\,\rho_{phys}\,(\Delta x/\Delta t)^2\), 힘 \(F = F_{lat}\,\rho_{phys}\Delta x^4/\Delta t^2\), 토크 \(M = M_{lat}\,\rho_{phys}\Delta x^5/\Delta t^2\) (3D 기준).</p>
+</section>
+
+<section id="bc">
+  <h2>6. 경계조건</h2>
+  <p>도메인 밖이나 고체 안에서 와야 할 분포 \(f_i\)를 아래 규칙으로 만듭니다. \(i\)는 유체 셀로 들어오는 방향, \(\bar i\)는 그 반대 방향, \(f^*\)는 충돌 후 값입니다.</p>
+  <table class="tbl">
+    <tr><th>경계</th><th>식</th><th>의미</th></tr>
+    <tr><td>벽 (halfway bounce-back)</td><td>\(f_i(\mathbf x) = f^*_{\bar i}(\mathbf x)\)</td><td>벽면이 셀 사이 중간(\(\Delta x/2\))에 놓이는 2차 정확도 점착 조건</td></tr>
+    <tr><td>움직이는 벽 (Ladd)</td><td>\(f_i = f^*_{\bar i} + 2w_i\rho_w\dfrac{\mathbf e_i\cdot\mathbf u_w}{c_s^2}\)</td><td>회전 날개·힌지 판의 표면 속도 \(\mathbf u_w = \boldsymbol\omega\times\mathbf r\)를 전달</td></tr>
+    <tr><td>속도 유입 (3D)</td><td>위와 같은 식, \(\mathbf u_w = \mathbf u_{in}(z)\)</td><td>균일 또는 대기경계층 분포</td></tr>
+    <tr><td>압력 (anti-bounce-back)</td><td>\(f_i = -f^*_{\bar i} + 2w_i\rho_b\Big[1 + \dfrac{(\mathbf e_i\cdot\mathbf u)^2}{2c_s^4} - \dfrac{u^2}{2c_s^2}\Big]\)</td><td>경계 밀도 \(\rho_b = 1 + p/(c_s^2\rho\,(\Delta x/\Delta t)^2)\) 고정</td></tr>
+    <tr><td>미끄럼 벽</td><td>\(f_i(\mathbf x) = f^*_{i'}(\mathbf x - \mathbf e_{i,t})\)</td><td>법선 성분만 뒤집는 거울 반사(마찰 없음)</td></tr>
+    <tr><td>자유 유출</td><td>\(f_i(\mathbf x) = f^*_i(\mathbf x - \mathbf e_{i,t})\)</td><td>법선 방향 0구배</td></tr>
+    <tr><td>주기</td><td>\(\mathbf x - \mathbf e_i\)를 반대편으로 감아 읽음</td><td>덕트·도시처럼 반복되는 형상</td></tr>
+    <tr><td>2D 속도·압력 변</td><td>Guo 비평형 외삽</td><td>경계 셀의 평형분포 + 안쪽 셀의 비평형분포</td></tr>
+  </table>
+  <h3>흡수층 (sponge)</h3>
+  <p>속도 유입면과 압력 유출면은 모두 음파를 반사하므로, 그대로 두면 두 면 사이에 정상파(관 공명)가 생겨 하중이 계속 진동합니다. 열린 면 안쪽 \(w\)셀 두께에서, 밀도를 장시간 이동평균 쪽으로 이완해 이 진동만 흡수합니다.</p>
+  $$\bar\rho^{\,n+1} = \bar\rho^{\,n} + \alpha(\rho - \bar\rho^{\,n}),\quad \alpha = \frac{1}{14\,N_{max}},\qquad f_i^* \mathrel{+}= \sigma(d)\,(\bar\rho - \rho)\,\frac{f_i^{eq}(1,\mathbf u)}{1},\quad \sigma = 0.08\Big(1 - \frac{d}{w-1}\Big)^2$$
+  <p class="note">평균값으로 이완하므로 평균 압력장(물체 항력을 만드는 부분)은 건드리지 않습니다. 구 항력 계산에서 개선 전 ±20%였던 진동이 개선 후 단조 수렴으로 바뀌었습니다.</p>
+</section>
+
+<section id="abl">
+  <h2>7. 대기경계층(ABL) 유입 조건</h2>
+  <p>지표 근처 바람은 지면 마찰 때문에 높이에 따라 빨라집니다. 도시·건물 기류를 볼 때 균일 유입을 쓰면 아래쪽 풍속을 과대평가하므로, 속도 유입면에 두 가지 분포를 넣을 수 있습니다(z는 도메인 바닥 기준 높이).</p>
+  <div class="grid2c">
+    <div class="card">
+      <h4>멱법칙 (power law)</h4>
+      $$U(z) = U_{ref}\left(\frac{z}{z_{ref}}\right)^{\alpha}$$
+      <p>건축물 풍하중 기준(KDS 41 10 15, ASCE 7 등)에서 쓰는 형태입니다. 지표면 조도가 거칠수록 \(\alpha\)가 큽니다.</p>
+    </div>
+    <div class="card">
+      <h4>로그법칙 (log law)</h4>
+      $$U(z) = \frac{u_*}{\kappa}\ln\frac{z+z_0}{z_0} = U_{ref}\,\frac{\ln\big((z+z_0)/z_0\big)}{\ln\big((z_{ref}+z_0)/z_0\big)}$$
+      <p>중립 대기의 표면층 이론식입니다. \(\kappa = 0.41\)은 von Kármán 상수, \(z_0\)는 공기역학적 조도 길이입니다.</p>
+    </div>
+  </div>
+  <table class="tbl">
+    <tr><th>지표면</th><th>α (멱법칙)</th><th>z₀ (로그법칙)</th></tr>
+    <tr><td>바다, 평탄한 개활지</td><td>0.10 ~ 0.12</td><td>0.0002 ~ 0.01 m</td></tr>
+    <tr><td>농경지, 낮은 장애물</td><td>0.15</td><td>0.03 ~ 0.1 m</td></tr>
+    <tr><td>교외, 저층 주거지</td><td>0.22</td><td>0.3 ~ 0.5 m</td></tr>
+    <tr><td>도심, 고층 밀집지</td><td>0.30 ~ 0.33</td><td>1 ~ 2 m</td></tr>
+  </table>
+  <p><b>구현:</b> 유입면 경계 셀에서 높이 \(z_c = (k+\tfrac12)\Delta x\)의 배율 \(U(z_c)/U_{ref}\)를 Ladd 속도 경계의 \(\mathbf u_w\)에 곱합니다. 격자 시간 간격은 분포의 최댓값(도메인 꼭대기)으로 정합니다. <span class="file">js/lbm3d/setup.js profileFactor · gpu.js · cpu.js</span></p>
+  <p class="note"><b>한계:</b> 바닥은 매끈한 점착 벽이고 벽법칙(wall function)이나 조도 블록이 없으므로, 빈 도메인에서는 유입 분포가 하류로 갈수록 조금씩 바뀝니다(수평 불균질성). 도시 블록처럼 건물이 많은 경우에는 건물 자체가 조도 역할을 하므로 영향이 상대적으로 작습니다. 정량 풍환경 평가에는 상류 조도 블록이나 OpenFOAM 같은 RANS·LES 도구의 교차 검증을 권장합니다.</p>
+</section>
+
+<section id="loads">
+  <h2>8. 물체 하중: 운동량 교환법</h2>
+  <p>유체 셀과 고체 셀을 잇는 링크마다, 벽에 부딪혀 되돌아오는 분포가 잃은 운동량이 곧 벽이 받은 힘입니다.</p>
+  $$\mathbf F = \sum_{\text{링크}} \big(2w_i\rho_0 - f^*_{\bar i}(\mathbf x) - f_i(\mathbf x)\big)\,\mathbf e_i,\qquad \mathbf M = \sum_{\text{링크}} (\mathbf x_{mid} - \mathbf x_{ref})\times\mathbf F_{\text{링크}}$$
+  <p>\(2w_i\rho_0\) 항은 정지 유체의 기준 압력을 빼는 보정입니다. 이 보정이 없으면 바닥에 붙은 건물처럼 한 면이 경계에 닿은 물체가 대기압 전체를 하중으로 받습니다. 모멘트 기준점은 움직이는 객체는 회전축, 고정 객체는 경계상자 중심이며, 화면에 표시하는 하중은 프레임 사이 모든 스텝의 평균입니다.</p>
+  <p class="note">GPU에서는 셀마다 객체별 합을 만든 뒤 고정소수점 정수(힘 \(2^{20}\), 모멘트 \(2^{18}\))로 원자 덧셈합니다. 정수 덧셈은 순서와 관계없이 같아서 결과가 재현됩니다. <span class="file">js/lbm3d/gpu.js flush()</span></p>
+</section>
+
+<section id="fsi">
+  <h2>9. 간이 FSI: 1축 강체 회전</h2>
+  <p>구조를 정밀 해석하지 않고 <b>움직일 수 있는 방식(자유도)</b>만 정한 뒤, 그 자유도에 걸리는 유체 토크로 운동시킵니다. 모드는 자유 회전, 힌지(스프링 \(k\), 각도 제한), 구동(rpm 지정)입니다.</p>
+  $$I\,\ddot\theta = M_a - c\,\dot\theta - k\,\theta,\qquad M_a = \mathbf M\cdot\hat{\mathbf a}$$
+  <h3>이동 경계와 재복셀화 (3D)</h3>
+  <p>물체를 기준 자세에서 0.5Δx 점유 격자로 한 번 복셀화해 둡니다. 매 스텝 각 셀 중심을 \(-\theta\)만큼 역회전해 그 격자를 조회하면, 현재 자세의 고체 셀이 정확히 나옵니다(Rodrigues 회전). 새로 드러난 셀은 벽 속도의 평형분포 \(f^{eq}(1,\mathbf u_w)\)로 채웁니다. <span class="file">gpu.js VOXEL · cpu.js voxel()</span></p>
+  <h3>안정화</h3>
+  <p>가벼운 판이나 로터는 분리형(유체 → 구조 순서) 결합에서 스텝마다 토크 부호가 바뀌며 발산하기 쉽습니다(부가질량 불안정). 두 가지로 막습니다.</p>
+  <ol>
+    <li><b>벽속도 반력의 암시적 처리:</b> Ladd 항이 만드는 즉시 반력은 \(-D\omega\) 꼴이며, \(D = \sum 6w_i\big(\hat{\mathbf a}\cdot(\mathbf r\times\mathbf e_i)\big)^2\)는 형상으로 정해집니다. 이 부분을 새 \(\omega\)로 처리합니다.</li>
+    <li><b>인공 부가관성:</b> \(I_a = 0.25\,b\,R^4 + 8D\)를 관성에 더하고, 이전 스텝 각가속도로 보정합니다. 각가속도가 일정하면 두 항이 상쇄돼 결과에 영향이 없고, 스텝 간 진동만 줄어듭니다.</li>
+  </ol>
+  $$\omega^{n+1} = \frac{(I+I_a)\,\omega^n + M_0 - k\theta^n + I_a(\omega^n-\omega^{n-1})}{I + I_a + c + k + D},\qquad \theta^{n+1} = \theta^n + \omega^{n+1}$$
+  <p>날개 끝 격자 속도는 0.12 이하로 제한합니다. 힌지 판을 같은 각도로 고정했을 때와 비교하면, 정지 시 하중이 0.73 대 0.73(격자 단위)으로 일치했습니다.</p>
+  <p class="note">2D는 두께 0인 판을 다루기 위해 IBM(Immersed Boundary Method) 직접 강제법을 씁니다(마커 간격 0.8Δx, 4점 코사인 커널, 3회 반복). <span class="file">js/lbm/ibm.js</span></p>
+</section>
+
+<section id="post">
+  <h2>10. 후처리</h2>
+  <ul>
+    <li><b>단면:</b> X·Y·Z 단면의 속도, 성분, 압력, 단면 수직 와도 \(\omega_n\) (중심 차분).</li>
+    <li><b>시간 평균:</b> 평균 시작 시각 이후 \(\bar{\mathbf u}^{n} = \bar{\mathbf u}^{n-1} + (\mathbf u^n - \bar{\mathbf u}^{n-1})/n\)로 누적합니다(GPU 버퍼 16 B/셀).</li>
+    <li><b>입자:</b> 유입면에서 계속 방출하는 유맥선 입자를 RK2로 이동합니다(GPU 2만 개).</li>
+    <li><b>유선:</b> 단면 2D 유선(RK4, 점유 격자로 간격 유지), 3D 유선(전체 필드 RK2, 유입면 시드).</li>
+    <li><b>Q-criterion:</b> \(Q = \tfrac12\big(\lVert\boldsymbol\Omega\rVert^2 - \lVert\mathbf S\rVert^2\big)\)의 등치면을 마칭 사면체로 만들어 와류 구조를 봅니다. 수준은 양의 Q 99.5백분위수에 대한 비율입니다.</li>
+    <li><b>프로브:</b> 지정 점의 속도·압력 시계열(최대 64점).</li>
+    <li><b>VTK:</b> 전체 속도·압력·고체 필드를 VTK legacy 바이너리(m, m/s, Pa)로 내보내 ParaView에서 이어서 볼 수 있습니다.</li>
+  </ul>
+</section>
+
+<section id="gpu">
+  <h2>11. GPU 구현 요약</h2>
+  <table class="tbl">
+    <tr><th>커널</th><th>역할</th></tr>
+    <tr><td>stream</td><td>셀당 1스레드. 19방향 pull + 경계 + 하중 누적 + 충돌 + 흡수층 + 평균 누적</td></tr>
+    <tr><td>body</td><td>1스레드. 강체 각도 갱신, 하중 평균, 스텝·램프 계수 갱신</td></tr>
+    <tr><td>voxel</td><td>움직이는 물체가 있을 때만. 셀 상태 갱신 + 드러난 셀 채움</td></tr>
+    <tr><td>cut / advect</td><td>프레임마다. 단면·프로브 추출, 입자 이동</td></tr>
+  </table>
+  <p>메모리는 셀당 약 190 B입니다(분포 2벌 152 B + 거시량 16 B + 평균 16 B + 상태·흡수층 8 B). 같은 알고리즘의 CPU 판과 80스텝 후 비교한 최대 차이는 \(10^{-5}\) 이하(f32 반올림 수준)이며, 하중·회전각도 일치합니다.</p>
+</section>
+
+<section id="valid">
+  <h2>12. 검증: 해석해·문헌 벤치마크와의 비교</h2>
+  <p>아래 결과는 모두 이 시뮬레이터의 솔버 코드를 그대로 써서 계산했습니다. 재현 스크립트는 저장소의 <code>validation/run2d.mjs</code>, <code>validation/run3d.mjs</code>이고, 결과 수치는 <code>validation/results.json</code>에서 읽어 그립니다. 오차는 기준값 대비 상대 오차, 분포는 기준 최댓값으로 나눈 RMS 오차입니다.</p>
+  <div id="vsummary"></div>
+  <div id="vcharts"></div>
+</section>
+
+<section id="refs">
+  <h2>13. 참고문헌</h2>
+  <ol class="refs">
+    <li>T. Krüger et al., <i>The Lattice Boltzmann Method: Principles and Practice</i>, Springer, 2017.</li>
+    <li>J. Latt, B. Chopard, "Lattice Boltzmann method with regularized pre-collision distribution functions," <i>Math. Comput. Simul.</i> 72, 2006.</li>
+    <li>S. Hou et al., "A lattice Boltzmann subgrid model for high Reynolds number flows," <i>Fields Inst. Commun.</i> 6, 1996.</li>
+    <li>A. J. C. Ladd, "Numerical simulations of particulate suspensions via a discretized Boltzmann equation," <i>J. Fluid Mech.</i> 271, 1994.</li>
+    <li>Z. Guo, C. Zheng, B. Shi, "Non-equilibrium extrapolation method for velocity and pressure boundary conditions," <i>Chin. Phys.</i> 11, 2002.</li>
+    <li>U. Ghia, K. N. Ghia, C. T. Shin, "High-Re solutions for incompressible flow using the Navier–Stokes equations and a multigrid method," <i>J. Comput. Phys.</i> 48, 1982.</li>
+    <li>J. Park, K. Kwon, H. Choi, "Numerical solutions of flow past a circular cylinder at Reynolds numbers up to 160," <i>KSME Int. J.</i> 12, 1998.</li>
+    <li>R. K. Shah, A. L. London, <i>Laminar Flow Forced Convection in Ducts</i>, Academic Press, 1978.</li>
+    <li>L. Schiller, A. Naumann, "Über die grundlegenden Berechnungen bei der Schwerkraftaufbereitung," <i>Z. Ver. Dtsch. Ing.</i> 77, 1933.</li>
+    <li>T. A. Johnson, V. C. Patel, "Flow past a sphere up to a Reynolds number of 300," <i>J. Fluid Mech.</i> 378, 1999.</li>
+    <li>M. Uhlmann, "An immersed boundary method with direct forcing for the simulation of particulate flows," <i>J. Comput. Phys.</i> 209, 2005.</li>
+    <li>국토교통부, KDS 41 10 15 건축구조기준 설계하중 (풍하중, 지표면 조도 구분).</li>
+  </ol>
+</section>
+</main>
+</div>
+<div id="tip" class="vtip hidden"></div>
+<script src="js/vendor/katex/katex.min.js"></script>
+<script src="js/vendor/katex/auto-render.min.js"></script>
+<script type="module" src="js/theory.js"></script>
+</body>
+</html>

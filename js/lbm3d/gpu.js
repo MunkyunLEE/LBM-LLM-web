@@ -24,6 +24,7 @@ const STREAM = COMMON + /* wgsl */`
 @group(0) @binding(5) var<storage, read> misc: array<f32>;
 @group(0) @binding(6) var<storage, read_write> acc: array<atomic<i32>>;
 @group(0) @binding(13) var<storage, read_write> rbar: array<f32>;
+@group(0) @binding(14) var<storage, read_write> mean: array<vec4<f32>>;
 var<private> R0: array<u32,19> = ${arr('u32', REFL[0])};
 var<private> R1: array<u32,19> = ${arr('u32', REFL[1])};
 var<private> R2: array<u32,19> = ${arr('u32', REFL[2])};
@@ -70,7 +71,10 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   var f: array<f32,19>;
   var cown = -1; var F = vec3<f32>(0.0); var M = vec3<f32>(0.0); var DD = 0.0;
   for (var i = 0u; i < 19u; i++) {
-    let sx = x - EX[i]; let sy = y - EY[i]; let sz = z - EZ[i];
+    var sx = x - EX[i]; var sy = y - EY[i]; var sz = z - EZ[i];
+    if (misc[0u] > 4.5) { sx = (sx + Nx) % Nx; }
+    if (misc[16u] > 4.5) { sy = (sy + Ny) % Ny; }
+    if (misc[32u] > 4.5) { sz = (sz + Nz) % Nz; }
     let e = vec3<f32>(f32(EX[i]), f32(EY[i]), f32(EZ[i]));
     let o = OPP[i];
     if (sx >= 0 && sx < Nx && sy >= 0 && sy < Ny && sz >= 0 && sz < Nz) {
@@ -84,7 +88,7 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
       f[i] = fi;
       if (own != 255u) {
         if (i32(own) != cown) { if (cown >= 0) { flush(u32(cown), F, M, DD); } cown = i32(own); F = vec3<f32>(0.0); M = vec3<f32>(0.0); DD = 0.0; }
-        let Fl = -(fo + fi) * e;
+        let Fl = (2.0 * W[i] - fo - fi) * e;
         let rr = X - vec3<f32>(misc[REFS + own * 4u], misc[REFS + own * 4u + 1u], misc[REFS + own * 4u + 2u]);
         F += Fl; M += cross(rr, Fl);
         if ((cs & 3u) == 2u) { let ob = BODY + bodyOf(own) * 32u; let ra = dot(vec3<f32>(misc[ob + 4u], misc[ob + 5u], misc[ob + 6u]), cross(rr, e)); DD += 6.0 * W[i] * ra * ra; }
@@ -110,7 +114,12 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
     if (nf > 1 && wallish) { t = 0u; }
     if (t == 0u) { f[i] = fa[o * N + k]; }
     else if (t == 2u) {
-      let ub = vec3<f32>(misc[eb + 4u], misc[eb + 5u], misc[eb + 6u]) * ramp;
+      var fac = ramp;
+      if (ent < 6) {
+        let pc = misc[eb + 7u]; let zr = misc[eb + 3u]; let zc = f32(z) + 0.5;
+        if (pc > 0.0) { fac = ramp * pow(zc / zr, pc); } else if (pc < 0.0) { fac = ramp * log((zc - pc) / -pc) / log((zr - pc) / -pc); }
+      }
+      let ub = vec3<f32>(misc[eb + 4u], misc[eb + 5u], misc[eb + 6u]) * fac;
       f[i] = fa[o * N + k] + 6.0 * W[i] * dot(e, ub);
     } else if (t == 3u) {
       let u = mac[k].xyz; let eu = dot(e, u);
@@ -164,6 +173,8 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
     fb[i * N + k] = val;
   }
   mac[k] = vec4<f32>(u, r);
+  let na = misc[GLOB + 3u];
+  if (na > 0.5) { mean[k] = mean[k] + (vec4<f32>(u, r) - mean[k]) / na; }
 }
 `;
 
@@ -200,6 +211,7 @@ fn main() {
   misc[GLOB + 2u] += 1.0;
   let st = misc[GLOB] + 1.0;
   misc[GLOB] = st;
+  if (st >= f32(p.a1)) { misc[GLOB + 3u] += 1.0; }
   if (st < p.rampSteps) { misc[GLOB + 1u] = 0.5 * (1.0 - cos(3.14159265 * st / p.rampSteps)); } else { misc[GLOB + 1u] = 1.0; }
 }
 `;
@@ -266,6 +278,8 @@ struct Q { np: u32, ne: u32, nsub: u32, seed: u32, dt: f32, maxAge: f32, sx: u32
 @group(0) @binding(10) var<storage, read_write> parts: array<vec4<f32>>;
 @group(0) @binding(11) var<storage, read> emit: array<vec4<f32>>;
 @group(0) @binding(12) var<storage, read_write> slice: array<vec4<f32>>;
+@group(0) @binding(13) var<storage, read> probes: array<u32>;
+@group(0) @binding(14) var<storage, read> mean: array<vec4<f32>>;
 var<private> rng: u32;
 fn rnd() -> f32 { rng = rng * 747796405u + 2891336453u; var w = ((rng >> ((rng >> 28u) + 4u)) ^ rng) * 277803737u; w = (w >> 22u) ^ w; return f32(w) / 4294967296.0; }
 fn sampleU(pos: vec3<f32>) -> vec4<f32> {
@@ -309,14 +323,16 @@ fn advect(@builtin(global_invocation_id) g: vec3<u32>) {
 }
 @compute @workgroup_size(64)
 fn cut(@builtin(global_invocation_id) g: vec3<u32>) {
-  let t = g.x + g.y * p.wgx;
-  if (t >= q.total) { return; }
+  let tt = g.x + g.y * p.wgx; let seg = q.total + q.b0;
+  if (tt >= seg * (1u + q.b1)) { return; }
+  let t = tt % seg; let useMean = tt >= seg;
   let a = p.Ny * p.Nz; let b = p.Nx * p.Nz;
   var k = 0u;
-  if (t < a) { let y = t % p.Ny; let z = t / p.Ny; k = q.sx + p.Nx * (y + p.Ny * z); }
+  if (t >= q.total) { k = probes[t - q.total]; }
+  else if (t < a) { let y = t % p.Ny; let z = t / p.Ny; k = q.sx + p.Nx * (y + p.Ny * z); }
   else if (t < a + b) { let r = t - a; let x = r % p.Nx; let z = r / p.Nx; k = x + p.Nx * (q.sy + p.Ny * z); }
   else { let r = t - a - b; let x = r % p.Nx; let y = r / p.Nx; k = x + p.Nx * (y + p.Ny * q.sz); }
-  slice[t] = mac[k];
+  if (useMean) { slice[tt] = mean[k]; } else { slice[tt] = mac[k]; }
 }
 `;
 
@@ -352,6 +368,7 @@ export class GPUSolver {
     const SU = GPUBufferUsage.STORAGE, CD = GPUBufferUsage.COPY_DST, CS = GPUBufferUsage.COPY_SRC;
     const mk = (size, usage = SU | CD | CS) => dev.createBuffer({ size: Math.max(16, Math.ceil(size / 16) * 16), usage });
     const rbar = mk(4 * N); dev.queue.writeBuffer(rbar, 0, new Float32Array(N).fill(1));
+    const mean = mk(16 * N);
     const fa = mk(need), fb = mk(need), cell = mk(4 * N), base = mk(4 * N), macro = mk(16 * N), misc = mk(4 * MISC), acc = mk(4 * 8 * MAX_OBJECTS);
     const feq = new Float32Array(N * 19);
     for (let i = 0; i < 19; i++) feq.fill(W[i], i * N, (i + 1) * N);
@@ -369,11 +386,12 @@ export class GPUSolver {
     const pu = new ArrayBuffer(48), pv = new DataView(pu);
     [N, Nx, Ny, Nz].forEach((v, i) => pv.setUint32(i * 4, v, true));
     pv.setFloat32(16, S.prm.tau0, true); pv.setFloat32(20, S.cs2, true); pv.setUint32(24, S.bodies.length, true); pv.setUint32(28, S.nobj, true);
-    pv.setFloat32(32, S.rampSteps, true); pv.setUint32(36, wgx, true); pv.setFloat32(40, S.alpha, true);
+    pv.setFloat32(32, S.rampSteps, true); pv.setUint32(36, wgx, true); pv.setFloat32(40, S.alpha, true); pv.setUint32(44, Math.min(S.avgStart, 2 ** 31), true);
     const ub = dev.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | CD });
     dev.queue.writeBuffer(ub, 0, pu);
     const qb = dev.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | CD });
     Object.assign(this, { fa, fb, cell, base, macro, misc, acc, occ, ub, qb, mk });
+    this.avgStart = S.avgStart;
     const pipe = async (code, entry = 'main') => {
       const mod = dev.createShaderModule({ code });
       const info = await mod.getCompilationInfo();
@@ -384,7 +402,7 @@ export class GPUSolver {
     const [ps, pb, pvx, pad, pcut] = await Promise.all([pipe(STREAM), pipe(BODYK), pipe(VOXEL), pipe(AUX, 'advect'), pipe(AUX, 'cut')]);
     const bg = (pl, ents) => dev.createBindGroup({ layout: pl.getBindGroupLayout(0), entries: Object.entries(ents).map(([b, buffer]) => ({ binding: +b, resource: { buffer } })) });
     this.pl = { ps, pb, pvx, pad, pcut };
-    this.bgS = [bg(ps, { 0: ub, 1: fa, 2: fb, 3: cell, 4: macro, 5: misc, 6: acc, 13: rbar }), bg(ps, { 0: ub, 1: fb, 2: fa, 3: cell, 4: macro, 5: misc, 6: acc, 13: rbar })];
+    this.bgS = [bg(ps, { 0: ub, 1: fa, 2: fb, 3: cell, 4: macro, 5: misc, 6: acc, 13: rbar, 14: mean }), bg(ps, { 0: ub, 1: fb, 2: fa, 3: cell, 4: macro, 5: misc, 6: acc, 13: rbar, 14: mean })];
     this.bgB = bg(pb, { 0: ub, 5: misc, 6: acc });
     this.bgV = [bg(pvx, { 0: ub, 2: fb, 3: cell, 4: macro, 5: misc, 7: base, 8: occ }), bg(pvx, { 0: ub, 2: fa, 3: cell, 4: macro, 5: misc, 7: base, 8: occ })];
     this.parity = 0;
@@ -392,7 +410,9 @@ export class GPUSolver {
     this.nbody = S.bodies.length;
     const total = Ny * Nz + Nx * Nz + Nx * Ny;
     this.sliceTotal = total;
-    this.sliceBuf = mk(16 * total);
+    this.sliceBuf = mk(16 * 2 * (total + 64));
+    this.probeBuf = mk(4 * 64);
+    this.meanBuf = mean;
     this.emitBuf = mk(S.emitters.byteLength); dev.queue.writeBuffer(this.emitBuf, 0, S.emitters);
     this.partBuf = null;
     if (this.nbody) {
@@ -422,7 +442,7 @@ export class GPUSolver {
 
   resetParts() { this.partBuf = null; }
 
-  async frame(sl, po) {
+  async frame(sl, po, probes = []) {
     const dev = this.dev, { Nx, Ny, Nz } = this;
     if (po && (!this.partBuf || this.np !== po.count)) {
       this.np = po.count;
@@ -430,18 +450,21 @@ export class GPUSolver {
       dev.queue.writeBuffer(this.partBuf, 0, initParts(po.count, this.S.emitters, po.maxAge));
       this.bgA = null;
     }
-    if (!this.bgC) this.bgC = dev.createBindGroup({ layout: this.pl.pcut.getBindGroupLayout(0), entries: [[0, this.ub], [4, this.macro], [9, this.qb], [12, this.sliceBuf]].map(([b, buffer]) => ({ binding: b, resource: { buffer } })) });
+    if (!this.bgC) this.bgC = dev.createBindGroup({ layout: this.pl.pcut.getBindGroupLayout(0), entries: [[0, this.ub], [4, this.macro], [9, this.qb], [12, this.sliceBuf], [13, this.probeBuf], [14, this.meanBuf]].map(([b, buffer]) => ({ binding: b, resource: { buffer } })) });
     if (po && !this.bgA) this.bgA = dev.createBindGroup({ layout: this.pl.pad.getBindGroupLayout(0), entries: [[0, this.ub], [4, this.macro], [9, this.qb], [10, this.partBuf], [11, this.emitBuf]].map(([b, buffer]) => ({ binding: b, resource: { buffer } })) });
     const qa = new ArrayBuffer(48), qv = new DataView(qa);
     qv.setUint32(0, po ? po.count : 0, true); qv.setUint32(4, this.S.emitters.length / 4, true); qv.setUint32(8, po ? po.nsub : 0, true);
     qv.setUint32(12, (Math.random() * 1e9) >>> 0, true); qv.setFloat32(16, po ? po.dt : 0, true); qv.setFloat32(20, po ? po.maxAge : 0, true);
     qv.setUint32(24, sl[0], true); qv.setUint32(28, sl[1], true); qv.setUint32(32, sl[2], true); qv.setUint32(36, this.sliceTotal, true);
+    const npr = Math.min(64, probes.length), avg = this.step > this.avgStart ? 1 : 0, seg = this.sliceTotal + npr;
+    qv.setUint32(40, npr, true); qv.setUint32(44, avg, true);
     dev.queue.writeBuffer(this.qb, 0, qa);
-    const enc = dev.createCommandEncoder(), pass = enc.beginComputePass(), [gx, gy] = dims(this.sliceTotal);
+    if (npr) dev.queue.writeBuffer(this.probeBuf, 0, Uint32Array.from(probes.slice(0, npr)));
+    const enc = dev.createCommandEncoder(), pass = enc.beginComputePass(), [gx, gy] = dims(seg * (1 + avg));
     pass.setPipeline(this.pl.pcut); pass.setBindGroup(0, this.bgC); pass.dispatchWorkgroups(gx, gy);
     if (po) { pass.setPipeline(this.pl.pad); pass.setBindGroup(0, this.bgA); pass.dispatchWorkgroups(Math.ceil(po.count / 64)); }
     pass.end();
-    const sz = 16 * this.sliceTotal, pz = po ? 32 * po.count : 0, mz = 4 * MISC;
+    const sz = 16 * seg * (1 + avg), pz = po ? 32 * po.count : 0, mz = 4 * MISC;
     const rd = dev.createBuffer({ size: sz + pz + mz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
     enc.copyBufferToBuffer(this.sliceBuf, 0, rd, 0, sz);
     if (po) enc.copyBufferToBuffer(this.partBuf, 0, rd, sz, pz);
@@ -453,13 +476,27 @@ export class GPUSolver {
     const all = new Float32Array(rd.getMappedRange().slice(0));
     rd.unmap(); rd.destroy();
     const a = Ny * Nz, b = Nx * Nz;
-    const X = all.slice(0, 4 * a), Y = all.slice(4 * a, 4 * (a + b)), Z = all.slice(4 * (a + b), 4 * this.sliceTotal);
+    const cutAt = (o) => ({ X: all.slice(o, o + 4 * a), Y: all.slice(o + 4 * a, o + 4 * (a + b)), Z: all.slice(o + 4 * (a + b), o + 4 * this.sliceTotal) });
+    const { X, Y, Z } = cutAt(0), T4 = 4 * this.sliceTotal, S4 = 4 * seg;
+    const prb = all.slice(T4, T4 + 4 * npr), mean = avg ? cutAt(S4) : null, prbM = avg ? all.slice(S4 + T4, S4 + T4 + 4 * npr) : null;
     const parts = po ? all.slice(sz / 4, (sz + pz) / 4) : null, mi = all.subarray((sz + pz) / 4);
     const bodies = [];
     for (let q = 0; q < this.nbody; q++) bodies.push([mi[BODY + q * 32 + 8], mi[BODY + q * 32 + 9]]);
     let div = this.lost;
     for (const arr of [X, Y, Z]) for (let k = 3; k < arr.length; k += 4 * 7) { const r = arr[k]; if (r !== r || r > 3 || (r < 0.2 && r !== 0)) div = true; }
-    return { step: Math.round(mi[GLOB]), X, Y, Z, parts, bodies, loads: mi.slice(LOADS, LOADS + 6 * this.S.nobj).map((v) => v / Math.max(1, mi[GLOB + 2])), diverged: div };
+    return { step: Math.round(mi[GLOB]), X, Y, Z, mean, navg: avg ? mi[GLOB + 3] : 0, probes: prb, probesMean: prbM, parts, bodies, loads: mi.slice(LOADS, LOADS + 6 * this.S.nobj).map((v) => v / Math.max(1, mi[GLOB + 2])), diverged: div };
+  }
+
+  async snapshot(useMean) {
+    const dev = this.dev, size = 16 * this.N, src = useMean && this.step > this.avgStart ? this.meanBuf : this.macro;
+    const rd = dev.createBuffer({ size, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    const enc = dev.createCommandEncoder();
+    enc.copyBufferToBuffer(src, 0, rd, 0, size);
+    dev.queue.submit([enc.finish()]);
+    await rd.mapAsync(GPUMapMode.READ);
+    const out = new Float32Array(rd.getMappedRange().slice(0));
+    rd.unmap(); rd.destroy();
+    return out;
   }
 
   destroy() {

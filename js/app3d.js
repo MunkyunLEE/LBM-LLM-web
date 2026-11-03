@@ -1,4 +1,5 @@
-import { View3D } from './view3d.js';
+import { View3D, PROBE_COLORS } from './view3d.js';
+import { lut } from './lbm/render.js';
 import { latticeParams3, gridDims3, FACES, meshOf, objectVerts } from './lbm3d/setup.js';
 import { parseSTL, parseOBJ, unitScale, bbox, anchors, encodeMesh, isClosed } from './lbm3d/mesh.js';
 import { generate } from './lbm3d/shapes.js';
@@ -15,13 +16,16 @@ const FACE_KO = { xmin: 'X−', xmax: 'X+', ymin: 'Y−', ymax: 'Y+', zmin: 'Z�
 const FACE_COL = { velocity: '#4f8cff', pressure: '#e5534b', outflow: '#f0a13a', slip: '#3fb950', wall: '#8a94a8' };
 const FLUIDS = { air: { nu: 1.5e-5, rho: 1.2 }, water: { nu: 1.0e-6, rho: 998 } };
 const OBJ_HEX = ['#8fa3c7', '#c79f8f', '#8fc7a6', '#b98fc7', '#c7c08f', '#8fc2c7'];
+const LUTC = {};
+const lutOf = (n) => LUTC[n] || (LUTC[n] = lut(n));
 const fmt = (v, d = 3) => (!Number.isFinite(v) ? '–' : (Math.abs(v) >= 1e4 || (Math.abs(v) < 1e-3 && v !== 0)) ? v.toExponential(2) : (+v.toFixed(d)).toString());
+const mm = (v) => (Number.isFinite(v) ? Math.round(v).toLocaleString() : '–');
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 function defaultCase() {
   return {
     version: 3, dim: 3, name: 'untitled',
-    Lx: 4000, Ly: 2400, Lz: 2400, Nx: 80, backend: 'auto',
+    Lx: 4000, Ly: 2400, Lz: 2400, dx: 50, origin: [0, 0, 0], backend: 'auto', clip: true, avgStart: 4, probes: [],
     fluid: { preset: 'air', nu: 1.5e-5, rho: 1.2 }, les: { enabled: true, cs: 0.15 },
     u_lat_max: 0.06, duration: 8, ramp: 1, frames: 120, sponge: 10, particles: 20000,
     faces: { xmin: { type: 'velocity', ux: 3, uy: 0, uz: 0 }, xmax: { type: 'pressure', p: 0 }, ymin: { type: 'slip' }, ymax: { type: 'slip' }, zmin: { type: 'wall' }, zmax: { type: 'slip' } },
@@ -71,10 +75,17 @@ function caseForSave() {
 function loadCase(c) {
   const d = defaultCase();
   S = { ...d, ...c, fluid: { ...d.fluid, ...c.fluid }, les: { ...d.les, ...c.les }, faces: { ...d.faces, ...c.faces }, snap: { ...d.snap, ...c.snap }, view: { ...d.view, ...c.view, slices: { ...d.view.slices, ...(c.view?.slices || {}) } } };
+  if (!(+c.dx > 0) && +c.Nx > 0) S.dx = +(c.Lx / c.Nx).toFixed(4);
+  delete S.Nx;
+  S.origin = (c.origin || [0, 0, 0]).map(Number);
+  S.probes = c.probes || [];
   S.objects = (c.objects || []).map((o) => normObj(o));
   S.patches = c.patches || [];
   sel = -1; patchSel = -1; frames = []; cur = -1; run = null; runRange = null; voxCells = null;
-  syncInputs(); rebuildScene(); view.camPreset('iso'); renderLoads(); drawLoadChart(); setMode('edit');
+  syncInputs(); rebuildScene(); view.camPreset('iso'); renderLoads(); drawLoadChart(); renderProbes(); drawProbeChart(); setMode('edit');
+  for (const id of ['btnS3', 'btnQ', 'btnVtk']) $(id).disabled = true;
+  view.setColoredLines('stream3d', null); view.setIso(null); $('anInfo').textContent = '';
+  worker?.postMessage({ cmd: 'probes', idx: probeIdx() });
 }
 
 function normObj(o) {
@@ -93,7 +104,8 @@ function centerOf(o) {
 }
 
 function syncInputs() {
-  $('inLx').value = S.Lx; $('inLy').value = S.Ly; $('inLz').value = S.Lz; $('inNx').value = S.Nx; $('inBackend').value = S.backend;
+  $('inLx').value = S.Lx; $('inLy').value = S.Ly; $('inLz').value = S.Lz; $('inDx').value = S.dx; $('inBackend').value = S.backend;
+  [$('inOx').value, $('inOy').value, $('inOz').value] = S.origin; $('chkClip').checked = S.clip !== false; $('inAvg').value = S.avgStart ?? +(S.duration * 0.5).toFixed(2);
   $('inFluid').value = S.fluid.preset || 'custom'; $('inNu').value = S.fluid.nu; $('inRho').value = S.fluid.rho; $('inLes').checked = S.les.enabled;
   $('inDur').value = S.duration; $('inRamp').value = S.ramp; $('inFrames').value = S.frames; $('inUlat').value = S.u_lat_max; $('inSponge').value = S.sponge; $('inParts').value = S.particles;
   $('chkSnap').checked = S.snap.on; $('inSnap').value = S.snap.step;
@@ -106,7 +118,10 @@ function syncInputs() {
 function rebuildScene() {
   const g = g3();
   view.patchSel = patchSel;
+  view.setOrigin(S.origin);
   view.setDomain(g.Lx, g.Ly, g.Lz, g.dxmm, $('chkBC').checked ? S.faces : {}, $('chkBC').checked ? S.patches : [], $('chkGrid').checked);
+  view.setClip(S.clip !== false);
+  view.setProbes(S.probes, g.dxmm);
   view.setObjects(S.objects.map((o) => ({ ...o, mesh: meshOf(o) })), sel);
   if (voxCells && $('chkVox').checked) showVoxels(); else view.setVoxels(null);
 }
@@ -124,10 +139,14 @@ function buildFaceRows() {
     const b = S.faces[k], row = document.createElement('div');
     row.className = 'face-row';
     row.innerHTML = `<span class="fname"><i style="background:${FACE_COL[b.type] || '#888'}"></i>${FACE_KO[k]}</span>
-      <select data-k="type"><option value="wall">벽</option><option value="slip">미끄럼</option><option value="velocity">속도</option><option value="pressure">압력</option><option value="outflow">자유 유출</option></select>
+      <select data-k="type"><option value="wall">벽</option><option value="slip">미끄럼</option><option value="velocity">속도</option><option value="pressure">압력</option><option value="outflow">자유 유출</option><option value="periodic">주기</option></select>
       <label class="v1"></label><label class="v2"></label><label class="v3"></label>`;
     row.querySelector('select').value = b.type;
-    row.querySelector('select').onchange = (e) => { S.faces[k] = { type: e.target.value, ux: 0, uy: 0, uz: 0, p: 0 }; if (e.target.value === 'velocity') { const a = Math.floor(FACES.indexOf(k) / 2), u = [0, 0, 0]; u[a] = FACES.indexOf(k) % 2 ? -1 : 1; [S.faces[k].ux, S.faces[k].uy, S.faces[k].uz] = u; } buildFaceRows(); changed(); };
+    row.querySelector('select').onchange = (e) => {
+      const opp = FACES[FACES.indexOf(k) ^ 1], was = S.faces[k].type;
+      if (e.target.value === 'periodic') S.faces[opp] = { type: 'periodic' };
+      else if (was === 'periodic' && S.faces[opp].type === 'periodic') S.faces[opp] = { type: 'slip' };
+      S.faces[k] = { type: e.target.value, ux: 0, uy: 0, uz: 0, p: 0 }; if (e.target.value === 'velocity') { const a = Math.floor(FACES.indexOf(k) / 2), u = [0, 0, 0]; u[a] = FACES.indexOf(k) % 2 ? -1 : 1; [S.faces[k].ux, S.faces[k].uy, S.faces[k].uz] = u; } buildFaceRows(); changed(); };
     const slots = [row.querySelector('.v1'), row.querySelector('.v2'), row.querySelector('.v3')];
     const fld = b.type === 'velocity' ? [['ux', 'uₓ'], ['uy', 'u_y'], ['uz', 'u_z']] : b.type === 'pressure' ? [['p', 'p Pa']] : [];
     fld.forEach(([key, ph], q) => {
@@ -137,6 +156,22 @@ function buildFaceRows() {
       slots[q].appendChild(inp);
     });
     box.appendChild(row);
+    if (b.type === 'velocity') {
+      const pr = b.profile || { type: 'uniform' }, sub = document.createElement('div');
+      sub.className = 'face-sub';
+      sub.innerHTML = `<span>분포</span><select><option value="uniform">균일</option><option value="power">멱법칙 (z/z<sub>ref</sub>)^α</option><option value="log">로그법칙 ln((z+z₀)/z₀)</option></select>
+        <label class="pz" title="기준 높이 z_ref [mm]"></label><label class="pa"></label><span class="pnote"></span>`;
+      const selp = sub.querySelector('select');
+      selp.value = pr.type || 'uniform';
+      selp.onchange = () => { const t = selp.value; S.faces[k].profile = t === 'uniform' ? { type: 'uniform' } : t === 'power' ? { type: 'power', zref: 10000, alpha: 0.25 } : { type: 'log', zref: 10000, z0: 300 }; buildFaceRows(); changed(false); };
+      if (pr.type === 'power' || pr.type === 'log') {
+        const mk = (key, ph, step) => { const inp = document.createElement('input'); inp.type = 'number'; inp.step = step; inp.value = pr[key]; inp.title = ph; inp.placeholder = ph; inp.oninput = () => { S.faces[k].profile[key] = +inp.value; updateParams(); }; return inp; };
+        sub.querySelector('.pz').appendChild(mk('zref', 'z_ref mm', '1000'));
+        sub.querySelector('.pa').appendChild(pr.type === 'power' ? mk('alpha', 'α', '0.01') : mk('z0', 'z₀ mm', '10'));
+        sub.querySelector('.pnote').textContent = pr.type === 'power' ? 'z_ref · α' : 'z_ref · z₀';
+      }
+      box.appendChild(sub);
+    }
   }
 }
 
@@ -213,7 +248,9 @@ function updateParams() {
     ['장치', be === 'gpu' ? 'GPU' : 'CPU'], ['예상', est < 90 ? `~${Math.max(1, Math.round(est))} s` : `~${(est / 60).toFixed(0)} 분`],
   ].map(([a, b]) => `<b>${a}</b><span>${b}</span>`).join('');
   $('warns').innerHTML = prm.warnings.map((w) => `<div class="warn">${w}</div>`).join('');
-  $('gridInfo').textContent = `Δx = ${fmt(prm.dxmm)} mm · 실제 도메인 ${fmt(prm.Lx, 0)} × ${fmt(prm.Ly, 0)} × ${fmt(prm.Lz, 0)} mm · 상한 ${prm.cap.toLocaleString()} 셀 (${be.toUpperCase()})`;
+  const off = [S.Lx, S.Ly, S.Lz].some((L, d) => Math.abs(L - [prm.Lx, prm.Ly, prm.Lz][d]) > 1e-6);
+  $('gridInfo').innerHTML = `N = ${prm.Nx} × ${prm.Ny} × ${prm.Nz} (정육면체 셀 ${fmt(prm.dxmm)} mm) · 해석 도메인 ${[prm.Lx, prm.Ly, prm.Lz].map((v) => Math.round(v).toLocaleString()).join(' × ')} mm${off ? ' · <b>입력 L이 Δx의 배수가 아니라 반올림됨</b>' : ''} · 상한 ${prm.cap.toLocaleString()} 셀 (${be.toUpperCase()})`;
+  $('btnFitL').disabled = !off;
   $('btnRun').disabled = locked() || prm.cells > prm.cap;
 }
 
@@ -224,7 +261,19 @@ function caseForParams() {
 function bindInputs() {
   const num = (id, fn) => { $(id).oninput = () => { fn(+$(id).value); }; };
   num('inLx', (v) => { S.Lx = v; changed(); }); num('inLy', (v) => { S.Ly = v; changed(); }); num('inLz', (v) => { S.Lz = v; changed(); });
-  num('inNx', (v) => { S.Nx = Math.max(8, Math.round(v)); changed(); });
+  num('inDx', (v) => { if (v > 0) { S.dx = v; changed(); } });
+  $('btnFitL').onclick = () => { const g = g3(); S.Lx = g.Lx; S.Ly = g.Ly; S.Lz = g.Lz; $('inLx').value = S.Lx; $('inLy').value = S.Ly; $('inLz').value = S.Lz; changed(); };
+  for (const [id, d] of [['inOx', 0], ['inOy', 1], ['inOz', 2]]) num(id, (v) => { S.origin[d] = v; changed(); });
+  $('chkClip').onchange = () => { S.clip = $('chkClip').checked; view.setClip(S.clip); };
+  num('inAvg', (v) => { S.avgStart = Math.max(0, v); });
+  $('btnDomToObj').onclick = () => {
+    const o = cur0();
+    if (!o) { toast('먼저 객체를 선택해 주세요.'); return; }
+    const [a, b] = bbox(objectVerts(o)), s0 = S.snap.step || 1;
+    S.origin = [(a[0] + b[0]) / 2 - S.Lx / 2, (a[1] + b[1]) / 2 - S.Ly / 2, a[2]].map((v) => Math.round(v / s0) * s0);
+    [$('inOx').value, $('inOy').value, $('inOz').value] = S.origin; changed(); view.camPreset('iso');
+    toast(`도메인 원점을 (${S.origin.map(mm).join(', ')}) mm로 옮겼습니다. 도메인 안에 든 부분만 해석됩니다.`, 5000);
+  };
   $('inBackend').onchange = () => { S.backend = $('inBackend').value; updateParams(); };
   $('inFluid').onchange = () => { const f = FLUIDS[$('inFluid').value]; S.fluid.preset = $('inFluid').value; if (f) { S.fluid.nu = f.nu; S.fluid.rho = f.rho; $('inNu').value = f.nu; $('inRho').value = f.rho; } updateParams(); };
   num('inNu', (v) => { S.fluid.nu = v; S.fluid.preset = 'custom'; $('inFluid').value = 'custom'; updateParams(); });
@@ -241,7 +290,7 @@ function bindInputs() {
   for (const id of ['obX', 'obY', 'obZ', 'obRx', 'obRy', 'obRz', 'obScale']) $(id).onchange = tr;
   $('obVoxel').onchange = () => { cur0().voxel = $('obVoxel').value; };
   $('obFloor').onclick = () => { const o = cur0(), old = centerOf(o), [a] = bbox(objectVerts(o)); o.pos[2] -= a[2]; movePivot(o, old); updateObjView(sel); renderObjEditor(); };
-  $('obCenter').onclick = () => { const o = cur0(), old = centerOf(o), g = g3(), [a, b] = bbox(objectVerts(o)); const c = [g.Lx / 2, g.Ly / 2, g.Lz / 2]; for (let d = 0; d < 3; d++) o.pos[d] += c[d] - (a[d] + b[d]) / 2; movePivot(o, old); updateObjView(sel); renderObjEditor(); };
+  $('obCenter').onclick = () => { const o = cur0(), old = centerOf(o), g = g3(), [a, b] = bbox(objectVerts(o)); const c = [g.Lx / 2 + S.origin[0], g.Ly / 2 + S.origin[1], g.Lz / 2 + S.origin[2]]; for (let d = 0; d < 3; d++) o.pos[d] += c[d] - (a[d] + b[d]) / 2; movePivot(o, old); updateObjView(sel); renderObjEditor(); };
   $('obDup').onclick = () => { const o = cur0(), n = normObj({ ...JSON.parse(JSON.stringify({ ...o, _mesh: undefined, mesh: undefined })), mesh: o.mesh.gen ? { gen: o.mesh.gen } : { v: meshOf(o).v.slice(), f: meshOf(o).f.slice() } }); n.name = o.name + ' 복사'; n.pos = n.pos.map((v, d) => v + (d === 1 ? S.snap.step * 2 : 0)); n.kin.pivot = n.kin.pivot.map((v, d) => v + (d === 1 ? S.snap.step * 2 : 0)); S.objects.push(n); sel = S.objects.length - 1; rebuildScene(); renderObjList(); renderObjEditor(); };
   $('obDel').onclick = deleteSel;
   $('kinMode').onchange = () => { const k = cur0().kin; k.mode = $('kinMode').value; if (k.mode === 'hinge' && !k.advanced.enabled) k.spring = k.spring || 'mid'; renderObjEditor(); renderObjList(); updateObjView(sel); updateParams(); };
@@ -276,7 +325,7 @@ function snapPos(i, prop, axes) {
   const test = { ...o, pos: prop }, A = anchors(objectVerts(test)), s = S.snap.step;
   let best = null, bd = Infinity, bk = -1;
   A.forEach((p, k) => {
-    const d = p.map((v, q) => (axes[q] ? Math.round(v / s) * s - v : 0)), m = Math.hypot(...d);
+    const d = p.map((v, q) => (axes[q] ? Math.round((v - S.origin[q]) / s) * s + S.origin[q] - v : 0)), m = Math.hypot(...d);
     if (m < bd) { bd = m; best = d; bk = k; }
   });
   view.snapAnchor = bk;
@@ -291,9 +340,9 @@ function addObject(o) {
 }
 
 function addSample(kind) {
-  const g = g3(), D = Math.min(g.Lx, g.Ly, g.Lz), c = [g.Lx * 0.3, g.Ly / 2, g.Lz / 2].map((v) => Math.round(v / 10) * 10);
+  const g = g3(), D = Math.min(g.Lx, g.Ly, g.Lz), O = S.origin, c = [g.Lx * 0.3, g.Ly / 2, g.Lz / 2].map((v, d) => Math.round(v / 10) * 10 + O[d]);
   if (kind === 'sphere') addObject({ name: `구 ${S.objects.length + 1}`, mesh: { gen: { type: 'sphere', r: Math.round(D * 0.1), seg: 24 } }, pos: c });
-  if (kind === 'box') addObject({ name: `상자 ${S.objects.length + 1}`, mesh: { gen: { type: 'box', a: Math.round(D * 0.2), b: Math.round(D * 0.2), c: Math.round(D * 0.2) } }, pos: [c[0], c[1], Math.round(D * 0.1)] });
+  if (kind === 'box') addObject({ name: `상자 ${S.objects.length + 1}`, mesh: { gen: { type: 'box', a: Math.round(D * 0.2), b: Math.round(D * 0.2), c: Math.round(D * 0.2) } }, pos: [c[0], c[1], O[2] + Math.round(D * 0.1)] });
   if (kind === 'plate') addObject({ name: `판 ${S.objects.length + 1}`, mesh: { gen: { type: 'box', a: Math.round(D * 0.02), b: Math.round(D * 0.4), c: Math.round(D * 0.3) } }, pos: c, voxel: 'both' });
   if (kind === 'rotor') {
     const R = Math.round(D * 0.28);
@@ -403,12 +452,17 @@ function sliceIdx() {
 
 function updateSliceText() {
   const g = g3(), idx = sliceIdx();
-  'XYZ'.split('').forEach((P, d) => { $(`sl${P}t`).textContent = `${fmt((idx[d] + 0.5) * g.dxmm, 0)} mm`; });
+  'XYZ'.split('').forEach((P, d) => { $(`sl${P}t`).textContent = `${mm((idx[d] + 0.5) * g.dxmm + S.origin[d])}`; });
+}
+
+function frameView(f) {
+  if (!f || !$('chkMean').checked || !f.mean) return f;
+  return { ...f, X: f.mean.X, Y: f.mean.Y, Z: f.mean.Z };
 }
 
 function refreshResult() {
   if (!view || S.mode !== 'result') return;
-  const fr = frames[cur];
+  const fr = frameView(frames[cur]);
   if (!fr || !run) { view.setSliceMeshes([]); view.setLines('vectors', null); view.setLines('streams', null); view.setParticles(null); return; }
   const prm = run.prm, v = S.view, field = v.field, rho = +S.fluid.rho;
   const planes = 'XYZ'.split('').filter((P) => v.slices[P].on);
@@ -457,22 +511,24 @@ function startRun() {
   run = { prm: null, kinIdx: S.objects.map((o, i) => (o.role === 'solid' && o.kin.mode !== 'off' ? i : -1)).filter((i) => i >= 0), names: S.objects.map((o) => o.name), kin: S.objects.map((o) => o.role === 'solid' && o.kin.mode !== 'off'), axis: S.objects.map((o) => o.kin.axis), rho: +S.fluid.rho };
   setState('building');
   setMode('result');
-  worker.postMessage({ cmd: 'run', case: c, opts: { backend: S.backend, frames: S.frames, particles: S.particles, slices: sliceIdx() } });
+  worker.postMessage({ cmd: 'run', case: c, opts: { backend: S.backend, frames: S.frames, particles: S.particles, slices: sliceIdx(), probes: probeIdx() } });
+  run.probes = S.probes.map((p) => p.slice());
 }
 
 function onWorker(ev) {
   const m = ev.data;
-  if (m.type === 'state') { setState(m.state); if (m.state === 'diverged') toast('계산이 발산했습니다. u_lat,max를 낮추거나 격자를 키워 보세요.', 6000); if (['done', 'stopped'].includes(m.state)) { computeRunRange(); renderLoads(); drawLoadChart(); } }
+  if (m.type === 'state') { setState(m.state); if (m.state === 'diverged') toast('계산이 발산했습니다. u_lat,max를 낮추거나 격자를 키워 보세요.', 6000); if (['done', 'stopped'].includes(m.state)) { computeRunRange(); renderLoads(); drawLoadChart(); drawProbeChart(); } }
   else if (m.type === 'started') {
     run.prm = { ...m.prm, Nx: m.prm.Nx, Ny: m.prm.Ny, Nz: m.prm.Nz }; run.backend = m.backend; run.steps = m.steps;
     $('devName').textContent = m.backend === 'gpu' ? `GPU · ${gpuInfo?.name || 'WebGPU'}` : 'CPU (JS)';
+    for (const id of ['btnS3', 'btnQ', 'btnVtk']) $(id).disabled = false;
   } else if (m.type === 'frame') {
     frames.push(m.frame);
     const follow = cur === frames.length - 2 || cur < 0;
     if (follow) { cur = frames.length - 1; refreshResult(); }
     $('play').classList.toggle('hidden', S.mode !== 'result');
     $('btnGif').disabled = frames.length < 2;
-    if (frames.length % 3 === 0 || state !== 'running') { renderLoads(); drawLoadChart(); }
+    if (frames.length % 3 === 0 || state !== 'running') { renderLoads(); drawLoadChart(); drawProbeChart(); }
   } else if (m.type === 'reslice') {
     if (frames.length) { frames[frames.length - 1] = { ...m.frame, parts: frames[frames.length - 1].parts }; if (cur === frames.length - 1) refreshResult(); }
   } else if (m.type === 'progress') {
@@ -481,6 +537,25 @@ function onWorker(ev) {
     const eta = m.sps ? (m.steps - m.step) / m.sps : 0;
     $('progText').textContent = `${(m.step * (run?.prm?.dt || 0)).toFixed(2)} s · ${m.step.toLocaleString()}/${m.steps.toLocaleString()} · ${m.mlups ? `${fmt(m.mlups, 0)} MLUPS` : `${fmt(m.sps, 0)} 스텝/s`} · 남은 ${eta < 90 ? Math.round(eta) + ' s' : (eta / 60).toFixed(1) + ' 분'}`;
     $('progText').title = `${fmt(m.sps, 0)} 스텝/s`;
+  } else if (m.type === 'busy') { $('anInfo').textContent = m.msg; }
+  else if (m.type === 'stream3d') {
+    const o = run.prm.dxmm, L = lutOf('umag'), pos = new Float32Array(m.pos.length), col = new Float32Array(m.pos.length);
+    for (let i = 0; i < m.pos.length; i++) pos[i] = m.pos[i] * o;
+    for (let i = 0; i < m.spd.length; i++) { const c = L[Math.min(L.length - 1, Math.round(m.spd[i] / (m.umax || 1) * (L.length - 1)))]; col.set([c[0] / 255, c[1] / 255, c[2] / 255], 3 * i); }
+    view.setColoredLines('stream3d', pos, col);
+    $('anInfo').textContent = `3D 유선 ${m.lines}개 (유입면 시드, 색 = 속도)`;
+  } else if (m.type === 'qiso') {
+    const o = run.prm.dxmm, L = lutOf('umag'), pos = new Float32Array(m.pos.length), col = new Float32Array(m.pos.length);
+    let um = 0;
+    for (const v of m.spd) um = Math.max(um, v);
+    for (let i = 0; i < m.pos.length; i++) pos[i] = m.pos[i] * o;
+    for (let i = 0; i < m.spd.length; i++) { const c = L[Math.min(L.length - 1, Math.round(m.spd[i] / (um || 1) * (L.length - 1)))]; col.set([c[0] / 255, c[1] / 255, c[2] / 255], 3 * i); }
+    view.setIso(pos, col);
+    $('anInfo').textContent = `Q 등치면: Q = ${fmt(m.level)} 1/s² · 삼각형 ${m.tris.toLocaleString()}개 (색 = 속도)`;
+  } else if (m.type === 'vtk') {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([m.buf], { type: 'application/octet-stream' })); a.download = `${S.name || 'lbm3d'}${m.mean ? '_mean' : ''}.vtk`; a.click();
+    $('anInfo').textContent = `VTK 저장 완료 (${(m.buf.byteLength / 2 ** 20).toFixed(1)} MB, 단위 m·m/s·Pa, ParaView에서 열기)`;
   } else if (m.type === 'error') toast(`오류: ${m.msg}`, 7000);
   else if (m.type === 'log') toast(m.msg, 6000);
   else if (m.type === 'probe') {
@@ -500,6 +575,63 @@ function showVoxels() {
   const n = voxCells.cells.length / 4;
   if (n > 400000) { toast('복셀이 너무 많아 일부만 표시합니다.'); view.setVoxels(voxCells.cells.subarray(0, 4 * 400000), voxCells.dxmm, pal); return; }
   view.setVoxels(voxCells.cells, voxCells.dxmm, pal);
+}
+
+function probeIdx() {
+  const g = g3();
+  return S.probes.map((p) => {
+    const i = clamp(Math.floor((p[0] - S.origin[0]) / g.dxmm), 0, g.Nx - 1), j = clamp(Math.floor((p[1] - S.origin[1]) / g.dxmm), 0, g.Ny - 1), k = clamp(Math.floor((p[2] - S.origin[2]) / g.dxmm), 0, g.Nz - 1);
+    return i + g.Nx * (j + g.Ny * k);
+  });
+}
+
+function renderProbes() {
+  const ul = $('probeList');
+  ul.innerHTML = '';
+  S.probes.forEach((p, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="sw" style="background:#${PROBE_COLORS[i % PROBE_COLORS.length].toString(16).padStart(6, '0')}"></span><span>P${i + 1}</span><span class="meta">(${p.map(mm).join(', ')}) mm</span><button class="ghost small">×</button>`;
+    li.querySelector('button').onclick = (e) => { e.stopPropagation(); S.probes.splice(i, 1); probesChanged(); };
+    ul.appendChild(li);
+  });
+  view.setProbes(S.probes, g3().dxmm);
+}
+
+function probesChanged() {
+  renderProbes(); drawProbeChart();
+  if (S.probes.length > 64) S.probes.length = 64;
+  worker.postMessage({ cmd: 'probes', idx: probeIdx() });
+  if (run) run.probes = S.probes.map((p) => p.slice());
+}
+
+function drawProbeChart() {
+  const c = $('probeChart'), r = c.getBoundingClientRect(), w = Math.max(200, Math.round(r.width || 336)), h = 140, d = window.devicePixelRatio || 1;
+  c.width = w * d; c.height = h * d;
+  const g = c.getContext('2d'), cs = getComputedStyle(document.documentElement);
+  g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, w, h);
+  g.font = '10px system-ui'; g.fillStyle = cs.getPropertyValue('--muted');
+  const fs = frames.filter((f) => f.probes && f.probes.length);
+  if (!run || !run.prm || fs.length < 2 || !S.probes.length) { g.fillText('프로브를 추가하면 해석 중/후 시계열이 표시됩니다.', 8, h / 2); return; }
+  const qty = $('prQty').value, vs = run.prm.dx / run.prm.dt, ps = +S.fluid.rho * vs * vs / 3, useM = $('chkMean').checked;
+  const val = (f, i) => { const a = useM && f.probesMean ? f.probesMean : f.probes; if (4 * i + 3 >= a.length) return NaN; const u = [a[4 * i], a[4 * i + 1], a[4 * i + 2]], rr = a[4 * i + 3]; if (!rr) return NaN; return qty === 'umag' ? Math.hypot(...u) * vs : qty === 'p' ? (rr - 1) * ps : u[{ ux: 0, uy: 1, uz: 2 }[qty]] * vs; };
+  const ts = fs.map((f) => f.step * run.prm.dt), n = Math.min(S.probes.length, fs[fs.length - 1].probes.length / 4);
+  const series = [];
+  for (let i = 0; i < n; i++) series.push(fs.map((f) => val(f, i)));
+  const all = series.flat().filter(Number.isFinite);
+  if (!all.length) { g.fillText('프로브 위치가 고체 안에 있습니다.', 8, h / 2); return; }
+  let y0 = Math.min(...all), y1 = Math.max(...all);
+  if (y1 - y0 < 1e-12) { y0 -= 1; y1 += 1; }
+  const pad = 34, X = (t) => pad + (t - ts[0]) / Math.max(ts.at(-1) - ts[0], 1e-9) * (w - pad - 8), Y = (v) => 8 + (1 - (v - y0) / (y1 - y0)) * (h - 26);
+  g.strokeStyle = cs.getPropertyValue('--cv-grid-major'); g.lineWidth = 1;
+  g.beginPath(); g.moveTo(pad, 8); g.lineTo(pad, h - 18); g.lineTo(w - 8, h - 18); g.stroke();
+  g.fillText(fmt(y1), 2, 14); g.fillText(fmt(y0), 2, h - 20);
+  g.fillText(`${ts[0].toFixed(1)} s`, pad, h - 5); g.textAlign = 'right'; g.fillText(`${ts.at(-1).toFixed(1)} s`, w - 8, h - 5); g.textAlign = 'left';
+  series.forEach((ys, i) => {
+    g.strokeStyle = '#' + PROBE_COLORS[i % PROBE_COLORS.length].toString(16).padStart(6, '0'); g.lineWidth = 1.5; g.beginPath();
+    let on = false;
+    ys.forEach((v, k) => { if (!Number.isFinite(v)) { on = false; return; } const x = X(ts[k]), y = Y(v); on ? g.lineTo(x, y) : g.moveTo(x, y); on = true; });
+    g.stroke();
+  });
 }
 
 function physLoads(fr) {
@@ -579,6 +711,19 @@ async function makeGif() {
   cur = was; refreshResult();
 }
 
+function bindAnalysis() {
+  const go = (kind) => { $('anInfo').textContent = '계산 중…'; worker.postMessage({ cmd: 'analyze', kind, mean: $('chkAnMean').checked, count: +$('inS3n').value, frac: +$('inQf').value / 100 }); if (S.mode !== 'result') setMode('result'); };
+  $('btnS3').onclick = () => go('stream');
+  $('btnQ').onclick = () => go('qiso');
+  $('btnVtk').onclick = () => go('vtk');
+  $('btnAnClear').onclick = () => { view.setColoredLines('stream3d', null); view.setIso(null); $('anInfo').textContent = ''; };
+  $('chkMean').onchange = () => { refreshResult(); drawProbeChart(); };
+  $('prQty').onchange = drawProbeChart;
+  $('btnPrAdd').onclick = () => { const p = [+$('prX').value, +$('prY').value, +$('prZ').value]; if (p.some((v) => !Number.isFinite(v))) return; S.probes.push(p); probesChanged(); };
+  $('btnPrClear').onclick = () => { S.probes = []; probesChanged(); };
+  $('btnPrPick').onclick = () => { const on = !$('btnPrPick').classList.contains('on'); $('btnPrPick').classList.toggle('on', on); view.pickProbe = on; if (on && S.mode !== 'result') setMode('result'); hint(on ? '결과 단면을 클릭하면 그 점에 프로브가 추가됩니다 (Esc로 종료)' : ''); };
+}
+
 function bindView() {
   document.querySelectorAll('#viewSeg button').forEach((b) => { b.onclick = () => setMode(b.dataset.view); });
   document.querySelectorAll('#camSeg button').forEach((b) => { b.onclick = () => view.camPreset(b.dataset.cam); });
@@ -634,7 +779,7 @@ function bindView() {
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && sel >= 0 && S.mode === 'edit') deleteSel();
-    if (e.key === 'Escape') { $('btnPivot').classList.remove('on'); view.pickAnchor = false; hint(''); }
+    if (e.key === 'Escape') { $('btnPivot').classList.remove('on'); view.pickAnchor = false; $('btnPrPick').classList.remove('on'); view.pickProbe = false; hint(''); }
   });
 }
 
@@ -661,7 +806,7 @@ function init() {
       updateObjView(i);
       view.buildHelpers(view.snapAnchor);
       [$('obX').value, $('obY').value, $('obZ').value] = o.pos.map((v) => +v.toFixed(1));
-      $('cursorInfo').textContent = `위치 (${o.pos.map((v) => fmt(v, 1)).join(', ')}) mm${S.snap.on ? ` · 스냅 ${S.snap.step} mm` : ''}`;
+      $('cursorInfo').textContent = `위치 (${o.pos.map(mm).join(', ')}) mm${S.snap.on ? ` · 스냅 ${S.snap.step} mm` : ''}`;
     },
     onDragEnd: () => { renderObjEditor(); updateParams(); voxCells = null; if ($('chkVox').checked) { $('chkVox').checked = false; view.setVoxels(null); } },
     onAnchor: (i, p) => {
@@ -669,8 +814,9 @@ function init() {
       o.kin.pivot = p.map((v) => +v.toFixed(3));
       $('btnPivot').classList.remove('on'); view.pickAnchor = false; hint('');
       renderObjEditor(); updateObjView(i);
-      toast(`회전축 위치: (${o.kin.pivot.map((v) => fmt(v, 1)).join(', ')}) mm`);
+      toast(`회전축 위치: (${o.kin.pivot.map(mm).join(', ')}) mm`);
     },
+    onProbe: (p) => { S.probes.push(p.map((v) => Math.round(v))); probesChanged(); toast(`프로브 P${S.probes.length} 추가: (${p.map(mm).join(', ')}) mm`); },
     onHover: (ev) => {
       if (S.mode !== 'result' || !frames[cur] || !run) return;
       const p = view.hitSlices(ev);
@@ -680,7 +826,7 @@ function init() {
       for (const P of planes) { const d = 'XYZ'.indexOf(P), c = (frames[cur].idx[d] + 0.5) * run.prm.dxmm; if (Math.abs(arr[d] - c) < run.prm.dxmm) best = P; }
       if (!best) return;
       const v = sampleAt(frames[cur], best, run.prm, arr, S.view.field, +S.fluid.rho);
-      $('cursorInfo').textContent = `(${arr.map((x) => fmt(x, 0)).join(', ')}) mm · ${FIELD_LABEL[S.view.field]} = ${Number.isNaN(v) ? '고체' : fmt(v)}`;
+      $('cursorInfo').textContent = `(${arr.map((x, d) => mm(x + S.origin[d])).join(', ')}) mm · ${FIELD_LABEL[S.view.field]} = ${Number.isNaN(v) ? '고체' : fmt(v)}`;
     },
   });
   worker = new Worker('js/worker3d.js', { type: 'module' });
@@ -690,7 +836,7 @@ function init() {
   applyTheme();
   if (window.matchMedia) window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (theme === 'system') applyTheme(); });
   $('btnTheme').onclick = () => { theme = THEME_NEXT[theme]; try { localStorage.setItem('lbm-theme', theme); } catch (_) {} applyTheme(); };
-  bindInputs(); bindPatches(); bindView();
+  bindInputs(); bindPatches(); bindView(); bindAnalysis();
   loadExamples();
   fetch('samples/3d/turbine_free.json').then((r) => r.json()).then(loadCase).catch(() => { loadCase(defaultCase()); });
   window.__lbm3d = { get S() { return S; }, get frames() { return frames; }, get state() { return state; }, view, startRun, loadCase, setMode };

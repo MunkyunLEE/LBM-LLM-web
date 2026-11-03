@@ -25,7 +25,6 @@
  "Lx": 4000,
  "Ly": 2400,
  "Lz": 2400,
- "Nx": 100,
  "duration": 12,
  "ramp": 1,
  "faces": {
@@ -121,5 +120,13 @@
   "stride": 3,
   "streamPlane": "Y",
   "psize": 2
- }
+ },
+ "dx": 40.0,
+ "origin": [
+  0,
+  0,
+  0
+ ],
+ "avgStart": 6.0,
+ "probes": []
 }

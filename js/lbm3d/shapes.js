@@ -68,7 +68,25 @@ export function rotor(opt = {}) {
   return B.done();
 }
 
+export function tube(ri, ro, len, seg = 48) {
+  const B = builder(), x0 = -len / 2, x1 = len / 2, P = [];
+  for (const [r, x] of [[ro, x0], [ro, x1], [ri, x1], [ri, x0]]) {
+    const ring = [];
+    for (let j = 0; j < seg; j++) { const t = 2 * Math.PI * j / seg; ring.push(B.p(x, r * Math.cos(t), r * Math.sin(t))); }
+    P.push(ring);
+  }
+  for (let j = 0; j < seg; j++) {
+    const k = (j + 1) % seg;
+    B.q(P[0][j], P[0][k], P[1][k], P[1][j]);
+    B.q(P[1][j], P[1][k], P[2][k], P[2][j]);
+    B.q(P[2][j], P[2][k], P[3][k], P[3][j]);
+    B.q(P[3][j], P[3][k], P[0][k], P[0][j]);
+  }
+  return B.done();
+}
+
 export function generate(gen) {
+  if (gen.type === 'tube') return tube(gen.ri, gen.ro, gen.len, gen.seg ?? 48);
   if (gen.type === 'sphere') return sphere(gen.r, gen.seg ?? 24);
   if (gen.type === 'box') return box(gen.a, gen.b, gen.c);
   if (gen.type === 'rotor') return rotor(gen);

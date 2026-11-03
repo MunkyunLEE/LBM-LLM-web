@@ -10,7 +10,7 @@ input[type=text] { width: 100%; height: 28px; border: 1px solid var(--line); bor
 .face-row .fname i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 .face-row input, .face-row select { height: 26px; margin: 0; }
 .face-row label { margin: 0; }
-.slicerow { display: grid; grid-template-columns: 82px 1fr 64px; gap: 8px; align-items: center; margin-bottom: 6px; }
+.slicerow { display: grid; grid-template-columns: 82px 1fr 76px; gap: 8px; align-items: center; margin-bottom: 6px; }
 .slicerow .check { margin: 0; }
 .slicerow input[type=range] { width: 100%; accent-color: var(--accent); }
 .slicerow span { font-size: 11px; color: var(--muted); text-align: right; }
@@ -23,10 +23,16 @@ input[type=text] { width: 100%; height: 28px; border: 1px solid var(--line); bor
 .ax-x { background: #e5534b; } .ax-y { background: #3fb950; } .ax-z { background: #4f8cff; }
 .cursor { bottom: 56px; }
 .legend { bottom: 56px; }
-.hdr-select { max-width: 240px; }
+.hdr-select { max-width: 180px; }
 header { gap: 14px; }
 .brand small { white-space: nowrap; }
 .status { min-width: 120px; }
 .progress { max-width: 180px; }
 #progText { font-size: 11px; }
 .hdr-actions { flex: none; }
+.fitl { margin-bottom: 8px; }
+.q3mean { margin-bottom: 14px; }
+#probeChart { width: 100%; height: 140px; display: block; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; }
+.face-sub { display: grid; grid-template-columns: 44px 96px 1fr 1fr 1fr; gap: 5px; align-items: center; margin: -2px 0 8px; }
+.face-sub span { font-size: 10px; color: var(--muted); }
+.face-sub input, .face-sub select { height: 24px; margin: 0; font-size: 11px; }

@@ -3,6 +3,7 @@ import { OrbitControls } from './vendor/three/OrbitControls.js';
 
 const BC_COLOR = { velocity: 0x4f8cff, pressure: 0xe5534b, outflow: 0xf0a13a, slip: 0x3fb950 };
 const FACE_FILL = { velocity: 0x4f8cff, pressure: 0xe5534b, outflow: 0xf0a13a };
+export const PROBE_COLORS = [0xff4d6d, 0xffb703, 0x06d6a0, 0x4cc9f0, 0xc77dff, 0xf72585, 0x8ac926, 0xff7f11];
 const OBJ_COLOR = [0x8fa3c7, 0xc79f8f, 0x8fc7a6, 0xb98fc7, 0xc7c08f, 0x8fc2c7];
 
 function cssVar(n) {
@@ -32,7 +33,14 @@ export class View3D {
     const dl = new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(0.6, -0.8, 1.4); this.scene.add(dl);
     this.dl = dl;
     this.groups = {};
-    for (const k of ['domain', 'grid', 'bc', 'objects', 'helpers', 'voxels', 'slices', 'vectors', 'streams', 'parts']) { this.groups[k] = new THREE.Group(); this.scene.add(this.groups[k]); }
+    this.local = new THREE.Group();
+    this.scene.add(this.local);
+    for (const k of ['domain', 'grid', 'bc', 'voxels', 'slices', 'vectors', 'streams', 'parts', 'stream3d', 'iso', 'probes']) { this.groups[k] = new THREE.Group(); this.local.add(this.groups[k]); }
+    for (const k of ['objects', 'helpers']) { this.groups[k] = new THREE.Group(); this.scene.add(this.groups[k]); }
+    this.renderer.localClippingEnabled = true;
+    this.clipPlanes = [];
+    this.origin = [0, 0, 0];
+    this.buildGizmo();
     this.meshes = []; this.sel = -1; this.mode = 'edit'; this.ray = new THREE.Raycaster();
     this.dom = { Lx: 1000, Ly: 1000, Lz: 1000 };
     this.bodyRot = new Map();
@@ -40,7 +48,7 @@ export class View3D {
     new ResizeObserver(() => this.resize()).observe(el);
     this.resize();
     this.applyTheme();
-    const loop = () => { this.controls.update(); this.renderer.render(this.scene, this.camera); requestAnimationFrame(loop); };
+    const loop = () => { this.controls.update(); this.renderNow(); requestAnimationFrame(loop); };
     loop();
   }
 
@@ -138,7 +146,7 @@ export class View3D {
       g.computeVertexNormals();
       const role = o.role || 'solid';
       const color = role === 'inlet' ? BC_COLOR.velocity : role === 'outlet' ? BC_COLOR.pressure : OBJ_COLOR[i % OBJ_COLOR.length];
-      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.05, flatShading: true, side: THREE.DoubleSide, transparent: role !== 'solid', opacity: role !== 'solid' ? 0.45 : 1 });
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.05, flatShading: true, side: THREE.DoubleSide, transparent: role !== 'solid', opacity: role !== 'solid' ? 0.45 : 1, clippingPlanes: this.clipPlanes });
       const mesh = new THREE.Mesh(g, mat);
       const pivot = new THREE.Group();
       pivot.add(mesh);
@@ -223,7 +231,7 @@ export class View3D {
 
   setMode(mode) {
     this.mode = mode;
-    for (const k of ['slices', 'vectors', 'streams', 'parts']) this.groups[k].visible = mode === 'result';
+    for (const k of ['slices', 'vectors', 'streams', 'parts', 'stream3d', 'iso']) this.groups[k].visible = mode === 'result';
     this.meshes.forEach((_, i) => this.applyBodyRot(i));
     this.buildHelpers();
   }
@@ -277,7 +285,7 @@ export class View3D {
   }
 
   camPreset(kind) {
-    const { Lx, Ly, Lz } = this.dom, c = new THREE.Vector3(Lx / 2, Ly / 2, Lz / 2), R = Math.hypot(Lx, Ly, Lz) * 1.25;
+    const { Lx, Ly, Lz } = this.dom, c = new THREE.Vector3(Lx / 2, Ly / 2, Lz / 2).add(new THREE.Vector3(...this.origin)), R = Math.hypot(Lx, Ly, Lz) * 1.25;
     const dir = { iso: [0.9, -1.3, 0.85], top: [0, -0.0001, 1], front: [0, -1, 0.0001], side: [1, 0, 0.0001] }[kind] || [0.9, -1.3, 0.85];
     const d = new THREE.Vector3(...dir).normalize();
     this.camera.position.copy(c.clone().addScaledVector(d, R));
@@ -297,6 +305,12 @@ export class View3D {
     let drag = null, down = null;
     el.addEventListener('pointerdown', (ev) => {
       if (ev.button !== 0) return;
+      const gz = this.gizmoHit(ev);
+      if (gz) { if (gz !== 'pad') this.viewFrom(gz); ev.stopImmediatePropagation(); this.controls.enabled = false; drag = { anchorOnly: true }; return; }
+      if (this.pickProbe && this.mode === 'result') {
+        const p = this.hitSlices(ev);
+        if (p) { this.cb.onProbe?.(p.clone().add(new THREE.Vector3(...this.origin)).toArray()); this.controls.enabled = false; drag = { anchorOnly: true }; return; }
+      }
       down = { x: ev.clientX, y: ev.clientY };
       if (this.mode !== 'edit') return;
       if (this.pickAnchor && this.anchorMeshes) {
@@ -345,10 +359,106 @@ export class View3D {
   hitSlices(ev) {
     this.rayAt(ev);
     const h = this.ray.intersectObjects(this.groups.slices.children, false);
-    return h.length ? h[0].point : null;
+    return h.length ? h[0].point.clone().sub(new THREE.Vector3(...this.origin)) : null;
   }
 
   canvas() { return this.renderer.domElement; }
 
-  renderNow() { this.renderer.render(this.scene, this.camera); }
+  renderNow() {
+    const r = this.renderer;
+    r.setScissorTest(false);
+    r.setViewport(0, 0, this.el.clientWidth, this.el.clientHeight);
+    r.render(this.scene, this.camera);
+    const sz = 120, w = this.el.clientWidth, h = this.el.clientHeight;
+    const d = this.camera.position.clone().sub(this.controls.target).normalize().multiplyScalar(4);
+    this.gcam.position.copy(d); this.gcam.up.copy(this.camera.up); this.gcam.lookAt(0, 0, 0);
+    r.autoClear = false;
+    r.setScissorTest(true);
+    r.setScissor(w - sz - 8, h - sz - 8, sz, sz); r.setViewport(w - sz - 8, h - sz - 8, sz, sz);
+    r.clearDepth();
+    r.render(this.gscene, this.gcam);
+    r.setScissorTest(false); r.autoClear = true;
+    r.setViewport(0, 0, w, h);
+  }
+
+  buildGizmo() {
+    this.gscene = new THREE.Scene();
+    this.gcam = new THREE.OrthographicCamera(-1.75, 1.75, 1.75, -1.75, 0.1, 20);
+    const label = (t, col) => {
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const g = c.getContext('2d'); g.fillStyle = col; g.beginPath(); g.arc(32, 32, 26, 0, 7); g.fill();
+      g.fillStyle = '#fff'; g.font = 'bold 34px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, 32, 34);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+      sp.scale.set(0.62, 0.62, 1);
+      return sp;
+    };
+    for (const [v, col, t] of [[[1, 0, 0], '#e5534b', 'X'], [[0, 1, 0], '#3fb950', 'Y'], [[0, 0, 1], '#4f8cff', 'Z']]) {
+      const dir = new THREE.Vector3(...v), c = new THREE.Color(col);
+      this.gscene.add(new THREE.ArrowHelper(dir, new THREE.Vector3(0, 0, 0), 1.05, c, 0.3, 0.16));
+      const sp = label(t, col); sp.position.copy(dir.clone().multiplyScalar(1.3)); this.gscene.add(sp);
+      const neg = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.5 }));
+      neg.position.copy(dir.clone().multiplyScalar(-1)); this.gscene.add(neg);
+    }
+    this.gscene.add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 8), new THREE.MeshBasicMaterial({ color: 0x8a94a8 })));
+  }
+
+  gizmoHit(ev) {
+    const r = this.renderer.domElement.getBoundingClientRect(), sz = 120, x = ev.clientX - r.left, y = ev.clientY - r.top;
+    if (x < r.width - sz - 8 || y > sz + 8) return null;
+    const v = new THREE.Vector2(((x - (r.width - sz - 8)) / sz) * 2 - 1, -((y - 8) / sz) * 2 + 1);
+    this.ray.setFromCamera(v, this.gcam);
+    const hit = this.ray.intersectObjects(this.gscene.children.filter((o) => o.isSprite), false);
+    return hit.length ? hit[0].object.position.clone().normalize() : 'pad';
+  }
+
+  viewFrom(dir) {
+    const { Lx, Ly, Lz } = this.dom, c = new THREE.Vector3(Lx / 2, Ly / 2, Lz / 2).add(new THREE.Vector3(...this.origin)), R = Math.hypot(Lx, Ly, Lz) * 1.25;
+    const d = dir.clone(); if (Math.abs(d.z) > 0.999) d.y -= 0.0001;
+    this.camera.position.copy(c.clone().addScaledVector(d.normalize(), R));
+    this.controls.target.copy(c); this.controls.update();
+  }
+
+  setOrigin(o) {
+    this.origin = o.slice();
+    this.local.position.set(...o);
+    this.updateClip();
+  }
+
+  setClip(on) { this.clipOn = on; this.updateClip(); }
+
+  updateClip() {
+    const o = this.origin, { Lx, Ly, Lz } = this.dom;
+    this.clipPlanes = this.clipOn ? [
+      new THREE.Plane(new THREE.Vector3(1, 0, 0), -o[0]), new THREE.Plane(new THREE.Vector3(-1, 0, 0), o[0] + Lx),
+      new THREE.Plane(new THREE.Vector3(0, 1, 0), -o[1]), new THREE.Plane(new THREE.Vector3(0, -1, 0), o[1] + Ly),
+      new THREE.Plane(new THREE.Vector3(0, 0, 1), -o[2]), new THREE.Plane(new THREE.Vector3(0, 0, -1), o[2] + Lz)] : [];
+    for (const m of this.meshes || []) { m.mesh.material.clippingPlanes = this.clipPlanes; m.mesh.material.needsUpdate = true; }
+  }
+
+  setProbes(list, dxmm) {
+    this.clear('probes');
+    const D = Math.max(this.dom.Lx, this.dom.Ly, this.dom.Lz), g = new THREE.SphereGeometry(D * 0.008, 14, 10);
+    list.forEach((p, i) => {
+      const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: PROBE_COLORS[i % PROBE_COLORS.length], depthTest: false }));
+      m.position.set(p[0] - this.origin[0], p[1] - this.origin[1], p[2] - this.origin[2]); m.renderOrder = 7;
+      this.groups.probes.add(m);
+    });
+  }
+
+  setColoredLines(group, pos, col) {
+    this.clear(group);
+    if (!pos || !pos.length) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    this.groups[group].add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true })));
+  }
+
+  setIso(pos, col) {
+    this.clear('iso');
+    if (!pos || !pos.length) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.computeVertexNormals();
+    this.groups.iso.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })));
+  }
 }

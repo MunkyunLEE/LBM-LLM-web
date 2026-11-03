@@ -29,6 +29,7 @@
     <select id="selExample" class="hdr-select" title="예제 케이스 불러오기"><option value="">예제 케이스…</option></select>
     <button id="btnSaveCase" class="ghost" title="현재 설정을 JSON으로 저장">케이스 저장</button>
     <label class="ghost btnlike" title="저장한 JSON 불러오기">불러오기<input id="fileCase" type="file" accept=".json" hidden></label>
+    <a class="ghost btnlike theory-btn" href="theory.html" title="이론식과 구현, 검증 결과">Theory</a>
     <button id="btnTheme" class="ghost theme-btn" title="테마: 시스템 설정">◐</button>
   </div>
 </header>
@@ -43,11 +44,21 @@
       <label>L<sub>z</sub> <em>mm</em><input id="inLz" type="number" step="100" min="10" value="2400"></label>
     </div>
     <div class="grid3">
-      <label>x 분할 N<sub>x</sub><input id="inNx" type="number" step="4" min="8" value="80"></label>
+      <label>셀 크기 Δx <em>mm</em><input id="inDx" type="number" step="5" min="0.1" value="50"></label>
       <label>계산 장치<select id="inBackend"><option value="auto">자동</option><option value="gpu">GPU (WebGPU)</option><option value="cpu">CPU</option></select></label>
-      <span></span>
+      <button id="btnFitL" class="ghost small fitl" title="L을 Δx의 정수배로 맞춤">L 맞춤</button>
     </div>
     <p class="readout" id="gridInfo"></p>
+    <h3>도메인 원점 <span class="sub">월드 좌표 (Rhino 좌표 그대로)</span></h3>
+    <div class="grid3">
+      <label>O<sub>x</sub> <em>mm</em><input id="inOx" type="number" step="100" value="0"></label>
+      <label>O<sub>y</sub> <em>mm</em><input id="inOy" type="number" step="100" value="0"></label>
+      <label>O<sub>z</sub> <em>mm</em><input id="inOz" type="number" step="100" value="0"></label>
+    </div>
+    <div class="row">
+      <button id="btnDomToObj" class="ghost small" title="선택 객체의 경계상자 중심으로 도메인을 옮기고 바닥을 객체 아래면에 맞춤">선택 객체로 도메인 이동</button>
+      <label class="check"><input id="chkClip" type="checkbox" checked> 도메인 밖 숨김</label>
+    </div>
   </section>
 
   <section>
@@ -194,6 +205,10 @@
       <label>흡수층 <em>%</em><input id="inSponge" type="number" step="1" min="0" max="25" value="10"></label>
       <label>입자 수<input id="inParts" type="number" step="1000" min="0" max="100000" value="20000"></label>
     </div>
+    <div class="grid3">
+      <label>시간 평균 시작 <em>s</em><input id="inAvg" type="number" step="0.5" min="0" value="4"></label>
+      <span></span><span></span>
+    </div>
     <div id="params" class="params"></div>
     <div id="warns"></div>
     <div class="row run-row">
@@ -219,8 +234,22 @@
       <label>입자 크기<input id="inPsize" type="number" min="1" max="8" value="2"></label>
     </div>
     <div class="row">
+      <label class="check"><input id="chkMean" type="checkbox"> 시간 평균장 표시</label>
       <label class="check"><input id="chkSolidHide" type="checkbox"> 결과에서 객체 반투명</label>
     </div>
+    <h3>3D 분석 <span class="sub">현재 계산 상태 기준</span></h3>
+    <div class="grid3">
+      <label>유선 수<input id="inS3n" type="number" min="20" max="2000" step="20" value="150"></label>
+      <label>Q 수준 <em>%</em><input id="inQf" type="number" min="0.5" max="100" step="0.5" value="8"></label>
+      <label class="check q3mean"><input id="chkAnMean" type="checkbox"> 평균장</label>
+    </div>
+    <div class="row">
+      <button id="btnS3" class="ghost small" disabled>3D 유선</button>
+      <button id="btnQ" class="ghost small" disabled>Q 와류 등치면</button>
+      <button id="btnVtk" class="ghost small" disabled>VTK 저장</button>
+      <button id="btnAnClear" class="ghost small">지우기</button>
+    </div>
+    <p class="readout" id="anInfo"></p>
     <div class="grid3">
       <label>GIF FPS<input id="inFps" type="number" min="1" max="50" value="15"></label>
       <label>GIF 폭 <em>px</em><input id="inGifW" type="number" min="240" max="1280" step="40" value="640"></label>
@@ -232,7 +261,24 @@
   </section>
 
   <section>
-    <h2><span class="num">7</span>물체 하중</h2>
+    <h2><span class="num">7</span>프로브 <span class="sub">점 시계열</span></h2>
+    <div class="grid3">
+      <label>x <em>mm</em><input id="prX" type="number" step="10"></label>
+      <label>y <em>mm</em><input id="prY" type="number" step="10"></label>
+      <label>z <em>mm</em><input id="prZ" type="number" step="10"></label>
+    </div>
+    <div class="row">
+      <button id="btnPrAdd" class="ghost small">+ 좌표로 추가</button>
+      <button id="btnPrPick" class="ghost small toggle" title="결과 화면의 단면을 클릭해 프로브 추가">단면 클릭으로 추가</button>
+      <button id="btnPrClear" class="ghost small">모두 삭제</button>
+    </div>
+    <ul id="probeList" class="list"></ul>
+    <label>항목<select id="prQty"><option value="umag">|u| [m/s]</option><option value="ux">uₓ [m/s]</option><option value="uy">u_y [m/s]</option><option value="uz">u_z [m/s]</option><option value="p">p [Pa]</option></select></label>
+    <canvas id="probeChart" width="336" height="140"></canvas>
+  </section>
+
+  <section>
+    <h2><span class="num">8</span>물체 하중</h2>
     <div class="tablewrap"><table class="loads" id="loadTable"></table></div>
     <div class="grid2">
       <label>객체<select id="loadObj"></select></label>
@@ -273,7 +319,6 @@
     <input id="playSlider" type="range" min="0" max="0" value="0">
     <span id="playText" class="mono"></span>
   </div>
-  <div id="axisInfo" class="axisinfo mono">X <i class="ax-x"></i> Y <i class="ax-y"></i> Z <i class="ax-z"></i></div>
   <div id="modeHint" class="modehint hidden"></div>
   <div id="cursorInfo" class="cursor mono"></div>
   <div id="toast" class="toast hidden"></div>

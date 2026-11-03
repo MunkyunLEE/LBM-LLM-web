@@ -1,0 +1,50 @@
+body.theory { overflow: auto; }
+.theory { --ser1: #2a78d6; --ser2: #eb6834; --ser3: #1baf7a; --ink2: #52514e; --chart-bg: #fcfcfb; --chart-grid: #e6e5e0; }
+:root[data-theme="dark"] .theory { --ser1: #3987e5; --ser2: #d95926; --ser3: #199e70; --ink2: #c3c2b7; --chart-bg: #1a1a19; --chart-grid: #33332f; }
+.tlayout { display: flex; max-width: 1240px; margin: 0 auto; gap: 28px; padding: 0 20px; }
+.toc { position: sticky; top: 0; align-self: flex-start; width: 200px; flex: none; padding: 24px 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; max-height: 100vh; overflow-y: auto; }
+.toc b { font-size: 12px; margin-bottom: 6px; color: var(--muted); }
+.toc a { color: var(--text); text-decoration: none; padding: 3px 8px; border-radius: 5px; }
+.toc a.sub { padding-left: 20px; color: var(--muted); }
+.toc a:hover { background: var(--hover); }
+.tmain { flex: 1; min-width: 0; padding: 24px 0 80px; line-height: 1.7; font-size: 14px; }
+.tmain h1 { font-size: 26px; margin: 8px 0 12px; }
+.tmain h2 { font-size: 19px; margin: 44px 0 12px; padding-top: 10px; border-top: 1px solid var(--line); display: block; }
+.tmain h3 { font-size: 15px; margin: 22px 0 8px; color: var(--text); }
+.tmain h4 { margin: 0 0 6px; font-size: 13px; display: flex; justify-content: space-between; gap: 8px; }
+.tmain p, .tmain li { color: var(--text); }
+.lead { font-size: 15px; }
+.note { font-size: 13px; color: var(--muted) !important; border-left: 3px solid var(--line); padding-left: 10px; }
+.file { font-family: ui-monospace, Consolas, monospace; font-size: 11px; color: var(--accent); font-weight: 400; }
+.callout { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 18px; margin: 14px 0; }
+.callout ol { margin: 6px 0 0; padding-left: 20px; }
+.grid2c { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 12px 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
+.card p { font-size: 13px; margin: 6px 0 0; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0 14px; }
+.tbl th, .tbl td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+.tbl th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.tbl td.vnum { font-family: ui-monospace, Consolas, monospace; text-align: right; white-space: nowrap; }
+.ok { color: #1baf7a; font-weight: 600; } .mid { color: #c98500; font-weight: 600; } .bad { color: #e34948; font-weight: 600; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+.vcase { margin: 30px 0 10px; }
+.vcase h3 { font-size: 16px; margin-bottom: 4px; }
+.vcase .desc { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+.vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.vbox { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 8px; min-width: 0; }
+.vbox .vt { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.vbox svg { width: 100%; height: auto; display: block; }
+.vbox canvas { width: 100%; height: auto; display: block; border-radius: 6px; }
+.vleg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.vleg span { display: inline-flex; align-items: center; gap: 5px; }
+.vleg i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.vleg i.dot { width: 8px; height: 8px; border-radius: 50%; }
+.metrics { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; }
+.metric { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 12px; min-width: 150px; }
+.metric b { display: block; font-size: 16px; font-family: ui-monospace, Consolas, monospace; }
+.metric small { color: var(--muted); }
+.vtip { position: fixed; pointer-events: none; background: var(--overlay); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font-size: 11px; color: var(--text); z-index: 20; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+.pending { color: var(--muted); font-size: 13px; padding: 12px; border: 1px dashed var(--line); border-radius: 8px; }
+@media (max-width: 860px) { .toc { display: none; } .grid2c { grid-template-columns: 1fr; } .tlayout { padding: 0 16px; } }
+main.tmain { display: block; height: auto; }
+html { height: auto; } body.theory { height: auto; }

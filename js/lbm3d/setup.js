@@ -7,7 +7,7 @@ export const EZ = [0, 0, 0, 0, 0, 1, -1, 0, 0, 0, 0, 1, -1, -1, 1, 1, -1, -1, 1]
 export const W = [1 / 3, ...Array(6).fill(1 / 18), ...Array(12).fill(1 / 36)];
 export const OPP = [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15, 18, 17];
 export const FACES = ['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax'];
-export const BC = { wall: 0, slip: 1, velocity: 2, pressure: 3, outflow: 4 };
+export const BC = { wall: 0, slip: 1, velocity: 2, pressure: 3, outflow: 4, periodic: 5 };
 export const MODE = { off: 0, free: 1, hinge: 2, drive: 3 };
 export const F_SCALE = 1048576, M_SCALE = 262144, D_SCALE = 512;
 export const CPU_MAX = 1000000, GPU_MAX = 8000000;
@@ -30,9 +30,21 @@ export function objectVerts(obj) {
 }
 
 export function gridDims3(c) {
-  const Lx = +c.Lx, Nx = Math.max(4, Math.trunc(+c.Nx)), dxmm = Lx / Nx;
-  const Ny = Math.max(4, Math.round(+c.Ly / dxmm)), Nz = Math.max(4, Math.round(+c.Lz / dxmm));
-  return { Lx, Ly: Ny * dxmm, Lz: Nz * dxmm, Nx, Ny, Nz, dxmm, cells: Nx * Ny * Nz };
+  const dxmm = +c.dx > 0 ? +c.dx : +c.Lx / Math.max(4, Math.trunc(+c.Nx));
+  const Nx = Math.max(4, Math.round(+c.Lx / dxmm)), Ny = Math.max(4, Math.round(+c.Ly / dxmm)), Nz = Math.max(4, Math.round(+c.Lz / dxmm));
+  return { Lx: Nx * dxmm, Ly: Ny * dxmm, Lz: Nz * dxmm, Nx, Ny, Nz, dxmm, cells: Nx * Ny * Nz, origin: originOf(c) };
+}
+
+export function originOf(c) {
+  const o = c.origin || [0, 0, 0];
+  return [+o[0] || 0, +o[1] || 0, +o[2] || 0];
+}
+
+export function profileFactor(b, z) {
+  const pr = b.profile || {};
+  if (pr.type === 'power') return Math.pow(Math.max(z, 1e-9) / Math.max(+pr.zref || 10000, 1e-9), +pr.alpha || 0.25);
+  if (pr.type === 'log') { const z0 = Math.max(+pr.z0 || 100, 1e-6), zr = Math.max(+pr.zref || 10000, 1e-6); return Math.log((Math.max(z, 0) + z0) / z0) / Math.log((zr + z0) / z0); }
+  return 1;
 }
 
 function isKin(o) {
@@ -54,13 +66,13 @@ function tipRadius(obj) {
   return r;
 }
 
-function faceSpeed(b) {
-  return b.type === 'velocity' ? Math.hypot(+b.ux || 0, +b.uy || 0, +b.uz || 0) : 0;
+function faceSpeed(b, Lz) {
+  return b.type === 'velocity' ? Math.hypot(+b.ux || 0, +b.uy || 0, +b.uz || 0) * Math.max(1, profileFactor(b, Lz)) : 0;
 }
 
 export function latticeParams3(c, backend = 'cpu') {
   const g = gridDims3(c), nu = +c.fluid.nu, uLat = +(c.u_lat_max ?? 0.06), les = c.les?.enabled ?? true;
-  const speeds = FACES.map((k) => faceSpeed(c.faces[k] || {}));
+  const speeds = FACES.map((k) => faceSpeed(c.faces[k] || {}, g.Lz));
   for (const p of c.patches || []) if (p.type === 'velocity') speeds.push(Math.abs(+p.un || 0));
   for (const o of c.objects || []) {
     if (o.role === 'inlet' && o.inlet) speeds.push(Math.hypot(+o.inlet.ux || 0, +o.inlet.uy || 0, +o.inlet.uz || 0));
@@ -117,11 +129,16 @@ export function buildSetup(c, backend = 'cpu') {
   const base = new Uint32Array(N).fill(255 << 2), objects = c.objects || [];
   if (objects.length > MAX_OBJECTS) throw new Error(`객체는 최대 ${MAX_OBJECTS}개입니다.`);
   const bcf = new Float32Array(8 * (6 + MAX_PATCHES)), info = [], bodies = [], refs = new Float32Array(4 * MAX_OBJECTS);
-  const spongeW = Math.max(0, +(c.sponge ?? 6)) / 100, Ns = [Nx, Ny, Nz];
+  const spongeW = Math.max(0, +(c.sponge ?? 6)) / 100, Ns = [Nx, Ny, Nz], O = prm.origin;
   FACES.forEach((k, fi) => {
-    const b = c.faces[k] || { type: 'wall' }, t = BC[b.type] ?? 0, u = latVel(b, prm);
-    const w = t >= 2 && spongeW > 0 ? Math.max(3, Math.round(spongeW * Ns[Math.floor(fi / 2)])) : 0;
-    bcf.set([t, t === 3 ? rhoOf(b.p, c, prm) : 1, w, fi, u[0], u[1], u[2], 0], fi * 8);
+    const b = c.faces[k] || { type: 'wall' }, u = latVel(b, prm);
+    let t = BC[b.type] ?? 0;
+    if (t === 5) { const other = c.faces[FACES[fi ^ 1]] || {}; if (other.type !== 'periodic') t = 1; }
+    const w = t >= 2 && t <= 4 && spongeW > 0 ? Math.max(3, Math.round(spongeW * Ns[Math.floor(fi / 2)])) : 0;
+    const pr = t === 2 ? (b.profile || {}) : {};
+    const pcode = pr.type === 'power' ? Math.min(0.99, Math.max(0.01, +pr.alpha || 0.25)) : pr.type === 'log' ? -Math.max(1e-4, (+pr.z0 || 100) / dxmm) : 0;
+    const zref = pr.type === 'power' || pr.type === 'log' ? Math.max(1e-3, (+pr.zref || 10000) / dxmm) : 0;
+    bcf.set([t, t === 3 ? rhoOf(b.p, c, prm) : 1, w, zref, u[0], u[1], u[2], pcode], fi * 8);
   });
   const patches = (c.patches || []).slice(0, MAX_PATCHES);
   let np = 0;
@@ -144,9 +161,9 @@ export function buildSetup(c, backend = 'cpu') {
   });
   const grid = { o: [0, 0, 0], h: 1, n: [Nx, Ny, Nz] };
   objects.forEach((o, oi) => {
-    const vmm = objectVerts(o), v = vmm.map((x) => x / dxmm), m = meshOf(o), [lo, hi] = bbox(vmm);
+    const vmm = objectVerts(o), v = vmm.map((x, q) => (x - O[q % 3]) / dxmm), m = meshOf(o), [lo, hi] = bbox(vmm);
     const ref = isKin(o) ? (o.kin.pivot || [0, 0, 0]) : [0, 1, 2].map((d) => (lo[d] + hi[d]) / 2);
-    refs.set([ref[0] / dxmm, ref[1] / dxmm, ref[2] / dxmm, 0], oi * 4);
+    refs.set([(ref[0] - O[0]) / dxmm, (ref[1] - O[1]) / dxmm, (ref[2] - O[2]) / dxmm, 0], oi * 4);
     const mode = o.voxel && o.voxel !== 'auto' ? o.voxel : (isClosed(m) ? 'solid' : 'shell'), band = 0.9;
     const role = o.role || 'solid';
     info.push({ name: o.name || `obj${oi + 1}`, role, kin: isKin(o) ? o.kin.mode : 'off', bbox: [lo, hi], ref, cells: 0 });
@@ -167,7 +184,7 @@ export function buildSetup(c, backend = 'cpu') {
     if (bodies.length >= MAX_BODIES) throw new Error(`움직이는 객체는 최대 ${MAX_BODIES}개입니다.`);
     bodies.push(makeBody(o, oi, v, m.f, mode, band, prm, c));
   });
-  return { prm, N, base, bcf, npatch: np, refs, info, bodies, nobj: objects.length, rampSteps: rampSteps(c, prm), alpha: 1 / (14 * Math.max(Nx, Ny, Nz)), cs2: (c.les?.enabled ?? true) ? (+(c.les?.cs ?? 0.15)) ** 2 : 0, emitters: emitters(c, prm, base, pemit) };
+  return { prm, N, base, bcf, npatch: np, refs, info, bodies, nobj: objects.length, rampSteps: rampSteps(c, prm), avgStart: Math.max(0, Math.round((c.avgStart ?? +(c.duration ?? 5) * 0.5) / prm.dt)), alpha: 1 / (14 * Math.max(Nx, Ny, Nz)), cs2: (c.les?.enabled ?? true) ? (+(c.les?.cs ?? 0.15)) ** 2 : 0, emitters: emitters(c, prm, base, pemit) };
 }
 
 function makeBody(o, oi, v, f, mode, band, prm, c) {
@@ -175,7 +192,7 @@ function makeBody(o, oi, v, f, mode, band, prm, c) {
   const org = lo.map((x) => x - pad), dims = [0, 1, 2].map((d) => Math.ceil((hi[d] - lo[d] + 2 * pad) / h));
   const nb = dims[0] * dims[1] * dims[2], bits = new Uint32Array(Math.ceil(nb / 32));
   voxelize(v, f, { o: org, h, n: dims }, mode, band, (i, j, k) => { const q = i + dims[0] * (j + dims[1] * k); bits[q >> 5] |= 1 << (q & 31); });
-  const p = (o.kin.pivot || [0, 0, 0]).map((x) => x / dxmm), a = axisOf(o);
+  const O = prm.origin, p = (o.kin.pivot || [0, 0, 0]).map((x, d) => (x - O[d]) / dxmm), a = axisOf(o);
   let rb = 0, rt = 0, s0 = Infinity, s1 = -Infinity;
   for (let i = 0; i < v.length; i += 3) {
     const d = [v[i] - p[0], v[i + 1] - p[1], v[i + 2] - p[2]], s = d[0] * a[0] + d[1] * a[1] + d[2] * a[2];

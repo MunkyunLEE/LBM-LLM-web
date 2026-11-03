@@ -25,7 +25,7 @@ const MAX_CELLS = 1000000;
 const MARGIN = 64, BAND = 14, GAP = 4, ARROW_PX = 26;
 
 const S = {
-  Lx: 10000, Ly: 10000, Nx: 500,
+  Lx: 10000, Ly: 10000, Nx: 500, ox: 0, oy: 0, clip: true,
   preset: 'demo', nu: 0.005, rho: 1.2, les: false, cs: 0.2,
   duration: 12, ramp: 2, frames: 120, ulat: 0.08, sponge: 8,
   edges: {
@@ -128,16 +128,17 @@ function addObject(name, parsed) {
   if (!pts.length) { toast(`${name}: 읽을 수 있는 커브가 없습니다.`); return; }
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-  const g = grid(), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  const inside = x0 >= 0 && x1 <= g.Lx && y0 >= 0 && y1 <= g.Ly;
+  const g = grid(), ox = +S.ox || 0, oy = +S.oy || 0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const overlap = x1 - ox > 0 && x0 - ox < g.Lx && y1 - oy > 0 && y0 - oy < g.Ly, inside = x0 - ox >= 0 && x1 - ox <= g.Lx && y0 - oy >= 0 && y1 - oy <= g.Ly;
   const k = S.objects.length;
   const o = ensureObj({
     id: uid++, name, color: OBJ_COLORS[k % OBJ_COLORS.length], rot: 0, scale: 1,
-    cx: inside ? cx : g.Lx / 2 + ((k % 3) - 1) * g.Lx * 0.12, cy: inside ? cy : g.Ly / 2,
+    cx: overlap ? cx - ox : g.Lx / 2 + ((k % 3) - 1) * g.Lx * 0.12, cy: overlap ? cy - oy : g.Ly / 2,
     curves: parsed.curves.map((c) => ({ closed: c.closed, points: c.points.map(([x, y]) => [x - cx, y - cy]) })),
   });
   S.objects.push(o);
-  if (!inside) toast(`${name}: 격자판 밖 좌표라 중앙 부근에 배치했습니다.`);
+  if (!overlap) toast(`${name}: 격자판과 겹치지 않아 중앙 부근에 배치했습니다. 원래 위치를 쓰려면 원점을 옮긴 뒤 다시 불러오세요.`);
+  else if (!inside) toast(`${name}: 도면이 격자판보다 커서 판 안에 든 부분만 해석됩니다.`);
   select('obj', o.id);
   changed();
 }
@@ -310,6 +311,12 @@ function drawOverlays() {
   ctx.restore();
 }
 function drawObjects() {
+  ctx.save();
+  if (S.clip !== false) { const [ax, ay] = w2s(0, grid().Ly), [bx, by] = w2s(grid().Lx, 0); ctx.beginPath(); ctx.rect(ax, ay, bx - ax, by - ay); ctx.clip(); }
+  drawObjectsInner();
+  ctx.restore();
+}
+function drawObjectsInner() {
   const sel = S.sel && S.sel.kind === 'obj' ? S.sel.id : null;
   const inResult = S.view === 'result' && resultCanvas, inMask = S.showMask && maskImg && S.view === 'edit';
   for (const o of S.objects) {
@@ -900,7 +907,7 @@ function updateStatusUI() {
   $('btnPause').textContent = st === 'paused' ? '재개' : '일시정지';
   $('btnStop').disabled = !busy;
   $('btnGif').disabled = busy || !(status.frames > 0);
-  for (const id of ['inLx', 'inLy', 'inNx', 'inPreset', 'inNu', 'inRho', 'inLes', 'inCs', 'inDur', 'inRamp', 'inFrames', 'inUlat', 'inSponge',
+  for (const id of ['inLx', 'inLy', 'inNx', 'inOx', 'inOy', 'inPreset', 'inNu', 'inRho', 'inLes', 'inCs', 'inDur', 'inRamp', 'inFrames', 'inUlat', 'inSponge',
     'obX', 'obY', 'obR', 'obS', 'obRole', 'obDel', 'kinMode', 'pvX', 'pvY', 'btnPivot', 'kinI', 'kinK', 'kinC', 'kinRpm', 'kinDir',
     'advI', 'advC', 'advK', 'advMin', 'advMax', 'paEdge', 'paS0', 'paS1', 'paDel', 'btnSamples', 'btnMask', 'selExample']) $(id).disabled = busy;
   $('fileDxf').disabled = busy;
@@ -952,6 +959,7 @@ function applyPreset(name) {
   scheduleParams();
 }
 function syncInputs() {
+  $('inOx').value = S.ox || 0; $('inOy').value = S.oy || 0; $('chkClip2').checked = S.clip !== false;
   for (const [id, key] of [['inLx', 'Lx'], ['inLy', 'Ly'], ['inNx', 'Nx'], ['inDur', 'duration'], ['inRamp', 'ramp'], ['inFrames', 'frames'], ['inUlat', 'ulat'], ['inSponge', 'sponge']]) $(id).value = S[key];
   $('inPreset').value = S.preset; $('inNu').value = S.nu; $('inRho').value = S.rho; $('inLes').checked = S.les; $('inCs').value = S.cs;
 }
@@ -978,6 +986,13 @@ function init() {
   $('inCs').onchange = () => { S.cs = +$('inCs').value; };
   applyPreset('demo');
 
+  const setOrigin = () => {
+    const nx = +$('inOx').value || 0, ny = +$('inOy').value || 0, dx = nx - (+S.ox || 0), dy = ny - (+S.oy || 0);
+    for (const o of S.objects) { o.cx -= dx; o.cy -= dy; }
+    S.ox = nx; S.oy = ny; changed(); renderObjEditor();
+  };
+  $('inOx').onchange = setOrigin; $('inOy').onchange = setOrigin;
+  $('chkClip2').onchange = () => { S.clip = $('chkClip2').checked; draw(); };
   $('fileDxf').onchange = async (e) => {
     for (const f of e.target.files) {
       try { addObject(f.name.replace(/\.dxf$/i, ''), await api('/api/dxf', f)); } catch (err) { toast(`${f.name}: ${err.message}`); }

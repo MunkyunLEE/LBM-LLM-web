@@ -19,6 +19,10 @@
   {
    "file": "room_vent.json",
    "title": "⑤ 실내 환기: 면 구간 유입·유출 + 장애물"
+  },
+  {
+   "file": "city_blocks.json",
+   "title": "⑥ 도시 빌딩 숲 기류 (대기경계층 유입, 대로 포함)"
   }
  ]
 }

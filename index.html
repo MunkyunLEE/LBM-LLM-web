@@ -28,6 +28,7 @@
     <select id="selExample" class="hdr-select" title="예제 케이스 불러오기"><option value="">예제 케이스…</option></select>
     <button id="btnSaveCase" class="ghost" title="현재 설정을 JSON으로 저장">케이스 저장</button>
     <label class="ghost btnlike" title="저장한 JSON 불러오기">불러오기<input id="fileCase" type="file" accept=".json" hidden></label>
+    <a class="ghost btnlike theory-btn" href="theory.html" title="이론식과 구현, 검증 결과">Theory</a>
     <button id="btnTheme" class="ghost theme-btn" title="테마: 시스템 설정">◐</button>
   </div>
 </header>
@@ -43,6 +44,12 @@
       <label>가로 분할 N<sub>x</sub><input id="inNx" type="number" min="20" max="2000" step="10" value="500"></label>
     </div>
     <p class="readout" id="gridInfo"></p>
+    <div class="grid3 origin2d">
+      <label>원점 O<sub>x</sub> <em>mm</em><input id="inOx" type="number" step="100" value="0"></label>
+      <label>원점 O<sub>y</sub> <em>mm</em><input id="inOy" type="number" step="100" value="0"></label>
+      <label class="check"><input id="chkClip2" type="checkbox" checked> 판 밖 숨김</label>
+    </div>
+    <p class="hint">DXF는 원래 좌표를 유지합니다. 격자판보다 큰 도면은 원점을 옮겨 필요한 부분만 판 안에 넣으면 그 부분만 해석됩니다.</p>
   </section>
 
   <section>

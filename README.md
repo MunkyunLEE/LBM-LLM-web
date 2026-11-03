@@ -50,21 +50,33 @@ LINE, LWPOLYLINE(호 구간 포함), POLYLINE, CIRCLE, ARC, ELLIPSE, SPLINE(유�
 
 2D 해석이므로 실스케일 공기·물(고 Re)의 정량 해석보다는 유동 패턴과 상대 비교 용도에 적합합니다.
 
-## 3D (v0.4)
+## 3D (v0.5)
 
 | 단계 | 내용 |
 |---|---|
-| 도메인 | Lx × Ly × Lz [mm] 직육면체, z = 0 바닥, 바닥·벽면 격자선, x 분할 수 Nx |
+| 도메인 | Lx × Ly × Lz [mm] 직육면체, 정육면체 셀 크기 Δx 직접 입력(N = L/Δx), 도메인 원점(월드 좌표) 지정, 도메인 밖 형상 숨김, 회전하는 XYZ 좌표계 |
 | 계산 장치 | 자동(WebGPU 우선) / GPU / CPU. GPU 셀 상한 800만, CPU 100만 |
 | 객체 | STL·OBJ 불러오기(mm/cm/m/inch), 구·상자·로터·판 기본 형상, 이동·회전·배율·복제, 바닥 놓기 |
 | 스냅 | 경계상자 꼭짓점 8개 + 면 중심 6개 앵커만 격자점에 스냅, Shift+드래그로 수직 이동 |
 | 객체 역할 | 고체 / 유입 영역(속도 벡터) / 유출 영역(압력) |
 | Kinematics | OFF / 자유 회전 / 힌지(스프링·각도 제한) / 구동(rpm). 회전축 X·Y·Z·사용자 벡터, 축 위치는 앵커 클릭 또는 숫자, 물성 프리셋 + 고급 입력(숨김) |
-| 경계조건 | 6면별 벽 / 미끄럼 / 속도 / 압력 / 자유 유출, 면 위 구간(사각형·원·DXF 닫힌 곡선) |
+| 경계조건 | 6면별 벽 / 미끄럼 / 속도 / 압력 / 자유 유출 / 주기, 대기경계층 유입(멱법칙·로그법칙), 면 위 구간(사각형·원·DXF 닫힌 곡선) |
 | 결과 | X·Y·Z 단면(속도 크기·성분, 압력, 수직 와도), 단면 벡터, 단면 유선, 3D 입자, 회전하는 객체, 커서 값 읽기 |
-| 하중 | 객체별 Fx, Fy, Fz, 축 모멘트, 각도, 회전수 표 + 시계열 |
+| 분석 | 시간 평균장, 프로브 시계열(최대 64점), 3D 유선, Q-criterion 와류 등치면, VTK 내보내기(ParaView) |
+| 하중 | 객체별 Fx, Fy, Fz, 축 모멘트, 각도, 회전수 표 + 시계열 (기준 압력 보정) |
 | GIF | 3D 뷰 캡처(시점 그대로), FPS·폭 지정 |
-| 예제 | 풍차형 로터 자유 회전, 실내 선풍기 구동, 힌지 판, 구 항력 검증, 실내 환기 |
+| 예제 | 풍차형 로터 자유 회전, 실내 선풍기 구동, 힌지 판, 구 항력 검증, 실내 환기, 도시 빌딩 숲(24동, 대로, 대기경계층 유입) |
+
+큰 STL(도시 전체 등)도 그대로 불러온 뒤 도메인 원점과 크기만 정하면 도메인 안에 든 부분만 해석합니다. 2D도 DXF 원래 좌표를 유지하고, 격자판 원점을 옮겨 일부만 해석할 수 있습니다.
+
+## Theory 페이지
+
+상단의 **Theory** 버튼(`theory.html`)에 사용한 이론식(LBGK, 정칙화 충돌, LES, 경계조건, 흡수층, 대기경계층, 운동량 교환, 간이 FSI, GPU 구현)과 문헌 벤치마크 비교 6종(2D 평행판·캐비티·원기둥, 3D 덕트·원관·구)의 그래프가 있습니다. 검증 스크립트는 `validation/`에 있으며 다음으로 다시 계산할 수 있습니다.
+
+```bash
+node validation/run2d.mjs poiseuille | cavity 100 | cavity 1000 | cylinder
+node validation/run3d.mjs duct | pipe | sphere 100
+```
 
 3D 솔버 요약: 정칙화 BGK + LES, 면 경계(bounce-back / 대칭 반사 / Ladd 속도 / anti-bounce-back 압력 / 0구배 유출), 열린 면 흡수층(밀도 이동평균 이완), 운동량 교환 하중, 이동 경계 bounce-back + 매 스텝 재복셀화로 강체 회전, 부가질량 안정화. 자세한 설계와 검증은 [docs/PLAN_3D.md](docs/PLAN_3D.md)에 있습니다.
 
@@ -108,6 +120,10 @@ js/lbm3d/shapes.js   기본 형상 생성(구, 상자, 로터)
 js/vendor/three      three.js r170 (MIT)
 samples/3d/          3D 예제 케이스
 docs/PLAN_3D.md      3D 및 간이 FSI 계획·현황
+theory.html, js/theory.js, css/theory.css   이론·검증 페이지
+js/lbm3d/analysis3d.js  3D 유선, Q-criterion 등치면, VTK
+validation/          벤치마크 재현 스크립트와 결과(results.json)
+js/vendor/katex      KaTeX 0.16 (MIT)
 ```
 
 ## 지원 브라우저

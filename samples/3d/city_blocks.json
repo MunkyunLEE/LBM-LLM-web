@@ -1,0 +1,1215 @@
+{
+ "version": 3,
+ "dim": 3,
+ "name": "city_blocks",
+ "title": "⑥ 도시 빌딩 숲 기류 (대기경계층 유입, 대로 포함)",
+ "backend": "auto",
+ "Lx": 640000,
+ "Ly": 400000,
+ "Lz": 160000,
+ "dx": 4000,
+ "origin": [
+  0,
+  0,
+  0
+ ],
+ "fluid": {
+  "preset": "air",
+  "nu": 1.5e-05,
+  "rho": 1.2
+ },
+ "les": {
+  "enabled": true,
+  "cs": 0.15
+ },
+ "u_lat_max": 0.06,
+ "duration": 200,
+ "ramp": 10,
+ "frames": 120,
+ "sponge": 8,
+ "particles": 30000,
+ "avgStart": 100,
+ "faces": {
+  "xmin": {
+   "type": "velocity",
+   "ux": 6,
+   "uy": 0,
+   "uz": 0,
+   "profile": {
+    "type": "power",
+    "zref": 10000,
+    "alpha": 0.25
+   }
+  },
+  "xmax": {
+   "type": "pressure",
+   "p": 0
+  },
+  "ymin": {
+   "type": "periodic"
+  },
+  "ymax": {
+   "type": "periodic"
+  },
+  "zmin": {
+   "type": "wall"
+  },
+  "zmax": {
+   "type": "slip"
+  }
+ },
+ "patches": [],
+ "objects": [
+  {
+   "name": "빌딩 S1a (36 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 36000,
+     "c": 36000
+    }
+   },
+   "pos": [
+    150000,
+    86900.0,
+    18000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     150000,
+     86900.0,
+     18000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S1b (30 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 32000,
+     "b": 36000,
+     "c": 30000
+    }
+   },
+   "pos": [
+    150000,
+    144100.0,
+    15000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     150000,
+     144100.0,
+     15000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S2a (24 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 28000,
+     "b": 36000,
+     "c": 24000
+    }
+   },
+   "pos": [
+    215000,
+    85100.0,
+    12000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     215000,
+     85100.0,
+     12000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S2b (30 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 28000,
+     "b": 36000,
+     "c": 30000
+    }
+   },
+   "pos": [
+    215000,
+    148100.0,
+    15000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     215000,
+     148100.0,
+     15000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S3a (36 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 28000,
+     "b": 24000,
+     "c": 36000
+    }
+   },
+   "pos": [
+    280000,
+    82200.0,
+    18000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     280000,
+     82200.0,
+     18000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S3b (54 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 32000,
+     "b": 24000,
+     "c": 54000
+    }
+   },
+   "pos": [
+    280000,
+    145800.0,
+    27000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     280000,
+     145800.0,
+     27000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S4a (45 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 28000,
+     "c": 45000
+    }
+   },
+   "pos": [
+    345000,
+    87700.0,
+    22500
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     345000,
+     87700.0,
+     22500
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S4b (78 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 24000,
+     "c": 78000
+    }
+   },
+   "pos": [
+    345000,
+    144400.0,
+    39000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     345000,
+     144400.0,
+     39000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S5a (24 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 36000,
+     "b": 36000,
+     "c": 24000
+    }
+   },
+   "pos": [
+    410000,
+    93500.0,
+    12000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     410000,
+     93500.0,
+     12000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S5b (90 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 36000,
+     "b": 32000,
+     "c": 90000
+    }
+   },
+   "pos": [
+    410000,
+    145600.0,
+    45000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     410000,
+     145600.0,
+     45000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S6a (24 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 36000,
+     "b": 24000,
+     "c": 24000
+    }
+   },
+   "pos": [
+    475000,
+    82300.0,
+    12000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     475000,
+     82300.0,
+     12000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 S6b (66 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 24000,
+     "c": 66000
+    }
+   },
+   "pos": [
+    475000,
+    146700.0,
+    33000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     475000,
+     146700.0,
+     33000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N1a (18 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 28000,
+     "b": 24000,
+     "c": 18000
+    }
+   },
+   "pos": [
+    150000,
+    261700.0,
+    9000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     150000,
+     261700.0,
+     9000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N1b (18 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 32000,
+     "b": 28000,
+     "c": 18000
+    }
+   },
+   "pos": [
+    150000,
+    317600.0,
+    9000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     150000,
+     317600.0,
+     9000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N2a (66 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 36000,
+     "c": 66000
+    }
+   },
+   "pos": [
+    215000,
+    263300.0,
+    33000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     215000,
+     263300.0,
+     33000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N2b (36 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 24000,
+     "c": 36000
+    }
+   },
+   "pos": [
+    215000,
+    313300.0,
+    18000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     215000,
+     313300.0,
+     18000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N3a (120 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 36000,
+     "b": 32000,
+     "c": 120000
+    }
+   },
+   "pos": [
+    280000,
+    252500.0,
+    60000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     280000,
+     252500.0,
+     60000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N3b (24 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 36000,
+     "b": 24000,
+     "c": 24000
+    }
+   },
+   "pos": [
+    280000,
+    318100.0,
+    12000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     280000,
+     318100.0,
+     12000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N4a (18 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 32000,
+     "b": 28000,
+     "c": 18000
+    }
+   },
+   "pos": [
+    345000,
+    260000.0,
+    9000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     345000,
+     260000.0,
+     9000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N4b (30 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 28000,
+     "b": 36000,
+     "c": 30000
+    }
+   },
+   "pos": [
+    345000,
+    316100.0,
+    15000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     345000,
+     316100.0,
+     15000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N5a (30 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 32000,
+     "b": 36000,
+     "c": 30000
+    }
+   },
+   "pos": [
+    410000,
+    257600.00000000003,
+    15000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     410000,
+     257600.00000000003,
+     15000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N5b (66 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 36000,
+     "c": 66000
+    }
+   },
+   "pos": [
+    410000,
+    307900.0,
+    33000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     410000,
+     307900.0,
+     33000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N6a (45 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 32000,
+     "b": 24000,
+     "c": 45000
+    }
+   },
+   "pos": [
+    475000,
+    254700.0,
+    22500
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     475000,
+     254700.0,
+     22500
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "빌딩 N6b (24 m)",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 28000,
+     "b": 28000,
+     "c": 24000
+    }
+   },
+   "pos": [
+    475000,
+    308700.0,
+    12000
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     475000,
+     308700.0,
+     12000
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  }
+ ],
+ "snap": {
+  "on": true,
+  "step": 4000
+ },
+ "probes": [
+  [
+   280000,
+   200000,
+   6000
+  ],
+  [
+   420000,
+   200000,
+   6000
+  ],
+  [
+   300000,
+   120000,
+   6000
+  ],
+  [
+   560000,
+   200000,
+   30000
+  ]
+ ],
+ "view": {
+  "field": "umag",
+  "range": "frame",
+  "slices": {
+   "X": {
+    "on": false,
+    "f": 0.5
+   },
+   "Y": {
+    "on": true,
+    "f": 0.5
+   },
+   "Z": {
+    "on": true,
+    "f": 0.02
+   }
+  },
+  "stride": 3,
+  "streamPlane": "Z",
+  "psize": 2
+ }
+}
