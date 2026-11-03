@@ -13,7 +13,7 @@ const THEME_NEXT = { system: 'dark', dark: 'light', light: 'system' };
 const THEME_LABEL = { system: '◐', dark: '☾', light: '☀' };
 const THEME_TITLE = { system: '테마: 시스템 설정', dark: '테마: 다크', light: '테마: 라이트' };
 const FACE_KO = { xmin: 'X−', xmax: 'X+', ymin: 'Y−', ymax: 'Y+', zmin: 'Z−', zmax: 'Z+' };
-const FACE_COL = { velocity: '#4f8cff', pressure: '#e5534b', outflow: '#f0a13a', slip: '#3fb950', wall: '#8a94a8' };
+const FACE_COL = { velocity: '#4f8cff', pressure: '#e5534b', outflow: '#f0a13a', slip: '#3fb950', wall: '#8a94a8', periodic: '#a78bfa' };
 const FLUIDS = { air: { nu: 1.5e-5, rho: 1.2 }, water: { nu: 1.0e-6, rho: 998 } };
 const OBJ_HEX = ['#8fa3c7', '#c79f8f', '#8fc7a6', '#b98fc7', '#c7c08f', '#8fc2c7'];
 const LUTC = {};
@@ -159,7 +159,7 @@ function buildFaceRows() {
     if (b.type === 'velocity') {
       const pr = b.profile || { type: 'uniform' }, sub = document.createElement('div');
       sub.className = 'face-sub';
-      sub.innerHTML = `<span>분포</span><select><option value="uniform">균일</option><option value="power">멱법칙 (z/z<sub>ref</sub>)^α</option><option value="log">로그법칙 ln((z+z₀)/z₀)</option></select>
+      sub.innerHTML = `<span>분포</span><select><option value="uniform">균일</option><option value="power">멱법칙</option><option value="log">로그법칙</option></select>
         <label class="pz" title="기준 높이 z_ref [mm]"></label><label class="pa"></label><span class="pnote"></span>`;
       const selp = sub.querySelector('select');
       selp.value = pr.type || 'uniform';
@@ -168,7 +168,7 @@ function buildFaceRows() {
         const mk = (key, ph, step) => { const inp = document.createElement('input'); inp.type = 'number'; inp.step = step; inp.value = pr[key]; inp.title = ph; inp.placeholder = ph; inp.oninput = () => { S.faces[k].profile[key] = +inp.value; updateParams(); }; return inp; };
         sub.querySelector('.pz').appendChild(mk('zref', 'z_ref mm', '1000'));
         sub.querySelector('.pa').appendChild(pr.type === 'power' ? mk('alpha', 'α', '0.01') : mk('z0', 'z₀ mm', '10'));
-        sub.querySelector('.pnote').textContent = pr.type === 'power' ? 'z_ref · α' : 'z_ref · z₀';
+        sub.querySelector('.pnote').textContent = pr.type === 'power' ? 'z_ref mm · α' : 'z_ref · z₀ mm';
       }
       box.appendChild(sub);
     }
@@ -183,7 +183,7 @@ function renderObjList() {
     li.className = i === sel ? 'on' : '';
     const tag = o.role !== 'solid' ? (o.role === 'inlet' ? '유입' : '유출') : o.kin.mode !== 'off' ? { free: '자유회전', hinge: '힌지', drive: '구동' }[o.kin.mode] : '고정';
     const nt = o.mesh.gen ? '' : `${(meshOf(o).f.length / 3).toLocaleString()}△`;
-    li.innerHTML = `<span class="sw" style="background:${OBJ_HEX[i % OBJ_HEX.length]}"></span><span>${o.name}</span><span class="tag">${tag}</span><span class="meta">${nt}</span>`;
+    li.innerHTML = `<span class="sw" style="background:${o.color || OBJ_HEX[i % OBJ_HEX.length]}"></span><span>${o.name}</span><span class="tag">${tag}</span><span class="meta">${nt}</span>`;
     li.onclick = () => selectObj(i);
     ul.appendChild(li);
   });

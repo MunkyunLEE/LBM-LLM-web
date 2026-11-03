@@ -145,7 +145,7 @@ export class View3D {
       g.setIndex(new THREE.BufferAttribute(o.mesh.f, 1));
       g.computeVertexNormals();
       const role = o.role || 'solid';
-      const color = role === 'inlet' ? BC_COLOR.velocity : role === 'outlet' ? BC_COLOR.pressure : OBJ_COLOR[i % OBJ_COLOR.length];
+      const color = role === 'inlet' ? BC_COLOR.velocity : role === 'outlet' ? BC_COLOR.pressure : o.color ? new THREE.Color(o.color) : OBJ_COLOR[i % OBJ_COLOR.length];
       const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.05, flatShading: true, side: THREE.DoubleSide, transparent: role !== 'solid', opacity: role !== 'solid' ? 0.45 : 1, clippingPlanes: this.clipPlanes });
       const mesh = new THREE.Mesh(g, mat);
       const pivot = new THREE.Group();

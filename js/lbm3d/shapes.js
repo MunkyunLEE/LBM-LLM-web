@@ -85,7 +85,37 @@ export function tube(ri, ro, len, seg = 48) {
   return B.done();
 }
 
+export function terrainHeight(gen, x, y) {
+  let h = +gen.base || 0;
+  for (const [hx, hy, hh, r] of gen.hills || []) h += hh * Math.exp(-((x - hx) ** 2 + (y - hy) ** 2) / (2 * r * r));
+  return h;
+}
+
+export function terrain(gen) {
+  const B = builder(), nx = gen.nx ?? 64, ny = gen.ny ?? 64, w = gen.w, d = gen.d, zb = gen.bottom ?? -2000, top = [], bot = [];
+  for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
+    const x = -w / 2 + w * i / nx, y = -d / 2 + d * j / ny;
+    top.push(B.p(x, y, terrainHeight(gen, x, y)));
+  }
+  const id = (i, j) => j * (nx + 1) + i;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) B.q(top[id(i, j)], top[id(i + 1, j)], top[id(i + 1, j + 1)], top[id(i, j + 1)]);
+  const ring = [];
+  for (let i = 0; i < nx; i++) ring.push([i, 0]);
+  for (let j = 0; j < ny; j++) ring.push([nx, j]);
+  for (let i = nx; i > 0; i--) ring.push([i, ny]);
+  for (let j = ny; j > 0; j--) ring.push([0, j]);
+  for (const [i, j] of ring) { const x = -w / 2 + w * i / nx, y = -d / 2 + d * j / ny; bot.push(B.p(x, y, zb)); }
+  const c = B.p(0, 0, zb), n = ring.length;
+  for (let k = 0; k < n; k++) {
+    const a = ring[k], b = ring[(k + 1) % n];
+    B.q(top[id(b[0], b[1])], top[id(a[0], a[1])], bot[k], bot[(k + 1) % n]);
+    B.t(c, bot[(k + 1) % n], bot[k]);
+  }
+  return B.done();
+}
+
 export function generate(gen) {
+  if (gen.type === 'terrain') return terrain(gen);
   if (gen.type === 'tube') return tube(gen.ri, gen.ro, gen.len, gen.seg ?? 48);
   if (gen.type === 'sphere') return sphere(gen.r, gen.seg ?? 24);
   if (gen.type === 'box') return box(gen.a, gen.b, gen.c);

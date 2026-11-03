@@ -2,7 +2,7 @@
  "version": 3,
  "dim": 3,
  "name": "city_blocks",
- "title": "⑥ 도시 빌딩 숲 기류 (대기경계층 유입, 대로 포함)",
+ "title": "⑥ 도시 빌딩 숲 기류 (지형·회전 배치 건물, 대기경계층 유입, 대로)",
  "backend": "auto",
  "Lx": 640000,
  "Ly": 400000,
@@ -61,19 +61,54 @@
  "patches": [],
  "objects": [
   {
-   "name": "빌딩 S1a (36 m)",
+   "name": "지형 (언덕)",
    "mesh": {
     "gen": {
-     "type": "box",
-     "a": 40000,
-     "b": 36000,
-     "c": 36000
+     "type": "terrain",
+     "w": 680000,
+     "d": 440000,
+     "nx": 96,
+     "ny": 64,
+     "base": 2000,
+     "bottom": -4000,
+     "hills": [
+      [
+       150000.0,
+       130000.0,
+       41600,
+       70000
+      ],
+      [
+       240000.0,
+       -110000.0,
+       30600,
+       55000
+      ],
+      [
+       -200000.0,
+       140000.0,
+       30800,
+       60000
+      ],
+      [
+       10000.0,
+       -160000.0,
+       15000,
+       45000
+      ],
+      [
+       280000.0,
+       60000.0,
+       24000,
+       40000
+      ]
+     ]
     }
    },
    "pos": [
-    150000,
-    86900.0,
-    18000
+    320000.0,
+    200000.0,
+    0
    ],
    "rot": [
     0,
@@ -92,9 +127,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     150000,
-     86900.0,
-     18000
+     320000.0,
+     200000.0,
+     0
     ],
     "inertia": "low",
     "spring": "mid",
@@ -104,27 +139,28 @@
     "advanced": {
      "enabled": false
     }
-   }
+   },
+   "color": "#8c9a6e"
   },
   {
-   "name": "빌딩 S1b (30 m)",
+   "name": "남1가 27m",
    "mesh": {
     "gen": {
      "type": "box",
      "a": 32000,
-     "b": 36000,
-     "c": 30000
+     "b": 20000,
+     "c": 27000
     }
    },
    "pos": [
-    150000,
-    144100.0,
-    15000
+    142273,
+    81544,
+    14003
    ],
    "rot": [
     0,
     0,
-    0
+    -24.8
    ],
    "scale": 1,
    "role": "solid",
@@ -138,9 +174,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     150000,
-     144100.0,
-     15000
+     142273,
+     81544,
+     14003
     ],
     "inertia": "low",
     "spring": "mid",
@@ -153,254 +189,24 @@
    }
   },
   {
-   "name": "빌딩 S2a (24 m)",
-   "mesh": {
-    "gen": {
-     "type": "box",
-     "a": 28000,
-     "b": 36000,
-     "c": 24000
-    }
-   },
-   "pos": [
-    215000,
-    85100.0,
-    12000
-   ],
-   "rot": [
-    0,
-    0,
-    0
-   ],
-   "scale": 1,
-   "role": "solid",
-   "voxel": "solid",
-   "kin": {
-    "mode": "off",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axisSel": "x",
-    "pivot": [
-     215000,
-     85100.0,
-     12000
-    ],
-    "inertia": "low",
-    "spring": "mid",
-    "damping": "low",
-    "rpm": 120,
-    "dir": "ccw",
-    "advanced": {
-     "enabled": false
-    }
-   }
-  },
-  {
-   "name": "빌딩 S2b (30 m)",
-   "mesh": {
-    "gen": {
-     "type": "box",
-     "a": 28000,
-     "b": 36000,
-     "c": 30000
-    }
-   },
-   "pos": [
-    215000,
-    148100.0,
-    15000
-   ],
-   "rot": [
-    0,
-    0,
-    0
-   ],
-   "scale": 1,
-   "role": "solid",
-   "voxel": "solid",
-   "kin": {
-    "mode": "off",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axisSel": "x",
-    "pivot": [
-     215000,
-     148100.0,
-     15000
-    ],
-    "inertia": "low",
-    "spring": "mid",
-    "damping": "low",
-    "rpm": 120,
-    "dir": "ccw",
-    "advanced": {
-     "enabled": false
-    }
-   }
-  },
-  {
-   "name": "빌딩 S3a (36 m)",
-   "mesh": {
-    "gen": {
-     "type": "box",
-     "a": 28000,
-     "b": 24000,
-     "c": 36000
-    }
-   },
-   "pos": [
-    280000,
-    82200.0,
-    18000
-   ],
-   "rot": [
-    0,
-    0,
-    0
-   ],
-   "scale": 1,
-   "role": "solid",
-   "voxel": "solid",
-   "kin": {
-    "mode": "off",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axisSel": "x",
-    "pivot": [
-     280000,
-     82200.0,
-     18000
-    ],
-    "inertia": "low",
-    "spring": "mid",
-    "damping": "low",
-    "rpm": 120,
-    "dir": "ccw",
-    "advanced": {
-     "enabled": false
-    }
-   }
-  },
-  {
-   "name": "빌딩 S3b (54 m)",
+   "name": "남1나 78m",
    "mesh": {
     "gen": {
      "type": "box",
      "a": 32000,
-     "b": 24000,
-     "c": 54000
-    }
-   },
-   "pos": [
-    280000,
-    145800.0,
-    27000
-   ],
-   "rot": [
-    0,
-    0,
-    0
-   ],
-   "scale": 1,
-   "role": "solid",
-   "voxel": "solid",
-   "kin": {
-    "mode": "off",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axisSel": "x",
-    "pivot": [
-     280000,
-     145800.0,
-     27000
-    ],
-    "inertia": "low",
-    "spring": "mid",
-    "damping": "low",
-    "rpm": 120,
-    "dir": "ccw",
-    "advanced": {
-     "enabled": false
-    }
-   }
-  },
-  {
-   "name": "빌딩 S4a (45 m)",
-   "mesh": {
-    "gen": {
-     "type": "box",
-     "a": 40000,
-     "b": 28000,
-     "c": 45000
-    }
-   },
-   "pos": [
-    345000,
-    87700.0,
-    22500
-   ],
-   "rot": [
-    0,
-    0,
-    0
-   ],
-   "scale": 1,
-   "role": "solid",
-   "voxel": "solid",
-   "kin": {
-    "mode": "off",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axisSel": "x",
-    "pivot": [
-     345000,
-     87700.0,
-     22500
-    ],
-    "inertia": "low",
-    "spring": "mid",
-    "damping": "low",
-    "rpm": 120,
-    "dir": "ccw",
-    "advanced": {
-     "enabled": false
-    }
-   }
-  },
-  {
-   "name": "빌딩 S4b (78 m)",
-   "mesh": {
-    "gen": {
-     "type": "box",
-     "a": 40000,
-     "b": 24000,
+     "b": 32000,
      "c": 78000
     }
    },
    "pos": [
-    345000,
-    144400.0,
-    39000
+    142225,
+    144432,
+    39550
    ],
    "rot": [
     0,
     0,
-    0
+    -3.2
    ],
    "scale": 1,
    "role": "solid",
@@ -414,9 +220,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     345000,
-     144400.0,
-     39000
+     142225,
+     144432,
+     39550
     ],
     "inertia": "low",
     "spring": "mid",
@@ -429,24 +235,24 @@
    }
   },
   {
-   "name": "빌딩 S5a (24 m)",
+   "name": "남2가 27m",
    "mesh": {
     "gen": {
      "type": "box",
-     "a": 36000,
-     "b": 36000,
-     "c": 24000
+     "a": 40000,
+     "b": 32000,
+     "c": 27000
     }
    },
    "pos": [
-    410000,
-    93500.0,
-    12000
+    212744,
+    78056,
+    14072
    ],
    "rot": [
     0,
     0,
-    0
+    0.7
    ],
    "scale": 1,
    "role": "solid",
@@ -460,9 +266,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     410000,
-     93500.0,
-     12000
+     212744,
+     78056,
+     14072
     ],
     "inertia": "low",
     "spring": "mid",
@@ -475,7 +281,53 @@
    }
   },
   {
-   "name": "빌딩 S5b (90 m)",
+   "name": "남2나 78m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 32000,
+     "b": 28000,
+     "c": 78000
+    }
+   },
+   "pos": [
+    222497,
+    139688,
+    39583
+   ],
+   "rot": [
+    0,
+    0,
+    22.6
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     222497,
+     139688,
+     39583
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "남3가 90m",
    "mesh": {
     "gen": {
      "type": "box",
@@ -485,14 +337,14 @@
     }
    },
    "pos": [
-    410000,
-    145600.0,
-    45000
+    282812,
+    79540,
+    47966
    ],
    "rot": [
     0,
     0,
-    0
+    8.3
    ],
    "scale": 1,
    "role": "solid",
@@ -506,9 +358,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     410000,
-     145600.0,
-     45000
+     282812,
+     79540,
+     47966
     ],
     "inertia": "low",
     "spring": "mid",
@@ -521,24 +373,24 @@
    }
   },
   {
-   "name": "빌딩 S6a (24 m)",
+   "name": "남3나 45m",
    "mesh": {
     "gen": {
      "type": "box",
-     "a": 36000,
-     "b": 24000,
-     "c": 24000
+     "a": 24000,
+     "b": 20000,
+     "c": 45000
     }
    },
    "pos": [
-    475000,
-    82300.0,
-    12000
+    273578,
+    136295,
+    23309
    ],
    "rot": [
     0,
     0,
-    0
+    -8.5
    ],
    "scale": 1,
    "role": "solid",
@@ -552,9 +404,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     475000,
-     82300.0,
-     12000
+     273578,
+     136295,
+     23309
     ],
     "inertia": "low",
     "spring": "mid",
@@ -567,24 +419,116 @@
    }
   },
   {
-   "name": "빌딩 S6b (66 m)",
+   "name": "남4가 78m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 32000,
+     "b": 20000,
+     "c": 78000
+    }
+   },
+   "pos": [
+    342914,
+    81289,
+    46232
+   ],
+   "rot": [
+    0,
+    0,
+    -8.8
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     342914,
+     81289,
+     46232
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "남4나 90m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 32000,
+     "b": 24000,
+     "c": 90000
+    }
+   },
+   "pos": [
+    338714,
+    146723,
+    46357
+   ],
+   "rot": [
+    0,
+    0,
+    27.9
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     338714,
+     146723,
+     46357
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "남5가 66m",
    "mesh": {
     "gen": {
      "type": "box",
      "a": 40000,
-     "b": 24000,
+     "b": 20000,
      "c": 66000
     }
    },
    "pos": [
-    475000,
-    146700.0,
-    33000
+    417127,
+    79592,
+    36145
    ],
    "rot": [
     0,
     0,
-    0
+    -3.6
    ],
    "scale": 1,
    "role": "solid",
@@ -598,9 +542,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     475000,
-     146700.0,
-     33000
+     417127,
+     79592,
+     36145
     ],
     "inertia": "low",
     "spring": "mid",
@@ -613,24 +557,24 @@
    }
   },
   {
-   "name": "빌딩 N1a (18 m)",
+   "name": "남5나 120m",
    "mesh": {
     "gen": {
      "type": "box",
      "a": 28000,
      "b": 24000,
-     "c": 18000
+     "c": 120000
     }
    },
    "pos": [
-    150000,
-    261700.0,
-    9000
+    412995,
+    149382,
+    61801
    ],
    "rot": [
     0,
     0,
-    0
+    0.3
    ],
    "scale": 1,
    "role": "solid",
@@ -644,9 +588,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     150000,
-     261700.0,
-     9000
+     412995,
+     149382,
+     61801
     ],
     "inertia": "low",
     "spring": "mid",
@@ -659,70 +603,24 @@
    }
   },
   {
-   "name": "빌딩 N1b (18 m)",
+   "name": "남5나 저층부",
    "mesh": {
     "gen": {
      "type": "box",
-     "a": 32000,
-     "b": 28000,
-     "c": 18000
-    }
-   },
-   "pos": [
-    150000,
-    317600.0,
-    9000
-   ],
-   "rot": [
-    0,
-    0,
-    0
-   ],
-   "scale": 1,
-   "role": "solid",
-   "voxel": "solid",
-   "kin": {
-    "mode": "off",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axisSel": "x",
-    "pivot": [
-     150000,
-     317600.0,
-     9000
-    ],
-    "inertia": "low",
-    "spring": "mid",
-    "damping": "low",
-    "rpm": 120,
-    "dir": "ccw",
-    "advanced": {
-     "enabled": false
-    }
-   }
-  },
-  {
-   "name": "빌딩 N2a (66 m)",
-   "mesh": {
-    "gen": {
-     "type": "box",
-     "a": 40000,
+     "a": 44800,
      "b": 36000,
-     "c": 66000
+     "c": 14000
     }
    },
    "pos": [
-    215000,
-    263300.0,
-    33000
+    412995,
+    149382,
+    8864
    ],
    "rot": [
     0,
     0,
-    0
+    0.3
    ],
    "scale": 1,
    "role": "solid",
@@ -736,9 +634,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     215000,
-     263300.0,
-     33000
+     412995,
+     149382,
+     8864
     ],
     "inertia": "low",
     "spring": "mid",
@@ -751,24 +649,70 @@
    }
   },
   {
-   "name": "빌딩 N2b (36 m)",
+   "name": "남6가 21m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 24000,
+     "b": 28000,
+     "c": 21000
+    }
+   },
+   "pos": [
+    467255,
+    88285,
+    15489
+   ],
+   "rot": [
+    0,
+    0,
+    27.5
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     467255,
+     88285,
+     15489
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "남6나 21m",
    "mesh": {
     "gen": {
      "type": "box",
      "a": 40000,
      "b": 24000,
-     "c": 36000
+     "c": 21000
     }
    },
    "pos": [
-    215000,
-    313300.0,
-    18000
+    479079,
+    142176,
+    15620
    ],
    "rot": [
     0,
     0,
-    0
+    -14.3
    ],
    "scale": 1,
    "role": "solid",
@@ -782,9 +726,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     215000,
-     313300.0,
-     18000
+     479079,
+     142176,
+     15620
     ],
     "inertia": "low",
     "spring": "mid",
@@ -797,24 +741,254 @@
    }
   },
   {
-   "name": "빌딩 N3a (120 m)",
+   "name": "남7가 54m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 28000,
+     "b": 24000,
+     "c": 54000
+    }
+   },
+   "pos": [
+    536049,
+    83155,
+    50268
+   ],
+   "rot": [
+    0,
+    0,
+    -0.4
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     536049,
+     83155,
+     50268
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "남7나 33m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 36000,
+     "b": 24000,
+     "c": 33000
+    }
+   },
+   "pos": [
+    546323,
+    145378,
+    30149
+   ],
+   "rot": [
+    0,
+    0,
+    -28.4
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     546323,
+     145378,
+     30149
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "북1가 45m",
    "mesh": {
     "gen": {
      "type": "box",
      "a": 36000,
      "b": 32000,
+     "c": 45000
+    }
+   },
+   "pos": [
+    146782,
+    262296,
+    29784
+   ],
+   "rot": [
+    0,
+    0,
+    41.4
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     146782,
+     262296,
+     29784
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "북1나 21m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 28000,
+     "b": 28000,
+     "c": 21000
+    }
+   },
+   "pos": [
+    157439,
+    318952,
+    29978
+   ],
+   "rot": [
+    0,
+    0,
+    -27.0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     157439,
+     318952,
+     29978
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "북2가 45m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 20000,
+     "c": 45000
+    }
+   },
+   "pos": [
+    210761,
+    258102,
+    25249
+   ],
+   "rot": [
+    0,
+    0,
+    32.4
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     210761,
+     258102,
+     25249
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "북3가 120m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 28000,
+     "b": 32000,
      "c": 120000
     }
    },
    "pos": [
-    280000,
-    252500.0,
-    60000
+    275257,
+    259786,
+    61200
    ],
    "rot": [
     0,
     0,
-    0
+    9.2
    ],
    "scale": 1,
    "role": "solid",
@@ -828,9 +1002,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     280000,
-     252500.0,
-     60000
+     275257,
+     259786,
+     61200
     ],
     "inertia": "low",
     "spring": "mid",
@@ -843,24 +1017,24 @@
    }
   },
   {
-   "name": "빌딩 N3b (24 m)",
+   "name": "북3가 저층부",
    "mesh": {
     "gen": {
      "type": "box",
-     "a": 36000,
-     "b": 24000,
-     "c": 24000
+     "a": 44800,
+     "b": 48000,
+     "c": 14000
     }
    },
    "pos": [
-    280000,
-    318100.0,
-    12000
+    275257,
+    259786,
+    8111
    ],
    "rot": [
     0,
     0,
-    0
+    9.2
    ],
    "scale": 1,
    "role": "solid",
@@ -874,9 +1048,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     280000,
-     318100.0,
-     12000
+     275257,
+     259786,
+     8111
     ],
     "inertia": "low",
     "spring": "mid",
@@ -889,24 +1063,70 @@
    }
   },
   {
-   "name": "빌딩 N4a (18 m)",
+   "name": "북3나 27m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 24000,
+     "b": 32000,
+     "c": 27000
+    }
+   },
+   "pos": [
+    283194,
+    315472,
+    15691
+   ],
+   "rot": [
+    0,
+    0,
+    46.8
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     283194,
+     315472,
+     15691
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "북4가 78m",
    "mesh": {
     "gen": {
      "type": "box",
      "a": 32000,
      "b": 28000,
-     "c": 18000
+     "c": 78000
     }
    },
    "pos": [
-    345000,
-    260000.0,
-    9000
+    351380,
+    251459,
+    42257
    ],
    "rot": [
     0,
     0,
-    0
+    2.9
    ],
    "scale": 1,
    "role": "solid",
@@ -920,9 +1140,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     345000,
-     260000.0,
-     9000
+     351380,
+     251459,
+     42257
     ],
     "inertia": "low",
     "spring": "mid",
@@ -935,24 +1155,24 @@
    }
   },
   {
-   "name": "빌딩 N4b (30 m)",
+   "name": "북4나 45m",
    "mesh": {
     "gen": {
      "type": "box",
-     "a": 28000,
-     "b": 36000,
-     "c": 30000
+     "a": 24000,
+     "b": 32000,
+     "c": 45000
     }
    },
    "pos": [
-    345000,
-    316100.0,
-    15000
+    346681,
+    312833,
+    28621
    ],
    "rot": [
     0,
     0,
-    0
+    21.3
    ],
    "scale": 1,
    "role": "solid",
@@ -966,9 +1186,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     345000,
-     316100.0,
-     15000
+     346681,
+     312833,
+     28621
     ],
     "inertia": "low",
     "spring": "mid",
@@ -981,99 +1201,7 @@
    }
   },
   {
-   "name": "빌딩 N5a (30 m)",
-   "mesh": {
-    "gen": {
-     "type": "box",
-     "a": 32000,
-     "b": 36000,
-     "c": 30000
-    }
-   },
-   "pos": [
-    410000,
-    257600.00000000003,
-    15000
-   ],
-   "rot": [
-    0,
-    0,
-    0
-   ],
-   "scale": 1,
-   "role": "solid",
-   "voxel": "solid",
-   "kin": {
-    "mode": "off",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axisSel": "x",
-    "pivot": [
-     410000,
-     257600.00000000003,
-     15000
-    ],
-    "inertia": "low",
-    "spring": "mid",
-    "damping": "low",
-    "rpm": 120,
-    "dir": "ccw",
-    "advanced": {
-     "enabled": false
-    }
-   }
-  },
-  {
-   "name": "빌딩 N5b (66 m)",
-   "mesh": {
-    "gen": {
-     "type": "box",
-     "a": 40000,
-     "b": 36000,
-     "c": 66000
-    }
-   },
-   "pos": [
-    410000,
-    307900.0,
-    33000
-   ],
-   "rot": [
-    0,
-    0,
-    0
-   ],
-   "scale": 1,
-   "role": "solid",
-   "voxel": "solid",
-   "kin": {
-    "mode": "off",
-    "axis": [
-     1,
-     0,
-     0
-    ],
-    "axisSel": "x",
-    "pivot": [
-     410000,
-     307900.0,
-     33000
-    ],
-    "inertia": "low",
-    "spring": "mid",
-    "damping": "low",
-    "rpm": 120,
-    "dir": "ccw",
-    "advanced": {
-     "enabled": false
-    }
-   }
-  },
-  {
-   "name": "빌딩 N6a (45 m)",
+   "name": "북5가 45m",
    "mesh": {
     "gen": {
      "type": "box",
@@ -1083,14 +1211,14 @@
     }
    },
    "pos": [
-    475000,
-    254700.0,
-    22500
+    408201,
+    256124,
+    33695
    ],
    "rot": [
     0,
     0,
-    0
+    32.0
    ],
    "scale": 1,
    "role": "solid",
@@ -1104,9 +1232,9 @@
     ],
     "axisSel": "x",
     "pivot": [
-     475000,
-     254700.0,
-     22500
+     408201,
+     256124,
+     33695
     ],
     "inertia": "low",
     "spring": "mid",
@@ -1119,24 +1247,24 @@
    }
   },
   {
-   "name": "빌딩 N6b (24 m)",
+   "name": "북5나 21m",
    "mesh": {
     "gen": {
      "type": "box",
-     "a": 28000,
-     "b": 28000,
-     "c": 24000
+     "a": 24000,
+     "b": 32000,
+     "c": 21000
     }
    },
    "pos": [
-    475000,
-    308700.0,
-    12000
+    405476,
+    312444,
+    31929
    ],
    "rot": [
     0,
     0,
-    0
+    8.0
    ],
    "scale": 1,
    "role": "solid",
@@ -1150,9 +1278,331 @@
     ],
     "axisSel": "x",
     "pivot": [
-     475000,
-     308700.0,
-     12000
+     405476,
+     312444,
+     31929
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "북6가 21m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 24000,
+     "b": 28000,
+     "c": 21000
+    }
+   },
+   "pos": [
+    476056,
+    256440,
+    30006
+   ],
+   "rot": [
+    0,
+    0,
+    -1.9
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     476056,
+     256440,
+     30006
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "북6나 27m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 32000,
+     "c": 27000
+    }
+   },
+   "pos": [
+    467683,
+    320050,
+    51274
+   ],
+   "rot": [
+    0,
+    0,
+    -14.4
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     467683,
+     320050,
+     51274
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "북7가 21m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 24000,
+     "b": 24000,
+     "c": 21000
+    }
+   },
+   "pos": [
+    543812,
+    255790,
+    29391
+   ],
+   "rot": [
+    0,
+    0,
+    20.3
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     543812,
+     255790,
+     29391
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "북7나 27m",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 40000,
+     "b": 24000,
+     "c": 27000
+    }
+   },
+   "pos": [
+    532656,
+    310434,
+    38472
+   ],
+   "rot": [
+    0,
+    0,
+    11.9
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     532656,
+     310434,
+     38472
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "외곽 1 판상동",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 60000,
+     "b": 14000,
+     "c": 50000
+    }
+   },
+   "pos": [
+    590000,
+    150000,
+    34236
+   ],
+   "rot": [
+    0,
+    0,
+    35
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     590000,
+     150000,
+     34236
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "외곽 2 판상동",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 60000,
+     "b": 14000,
+     "c": 50000
+    }
+   },
+   "pos": [
+    605000,
+    310000,
+    36164
+   ],
+   "rot": [
+    0,
+    0,
+    -20
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     605000,
+     310000,
+     36164
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "외곽 3 판상동",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 60000,
+     "b": 14000,
+     "c": 30000
+    }
+   },
+   "pos": [
+    95000,
+    120000,
+    15512
+   ],
+   "rot": [
+    0,
+    0,
+    10
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     95000,
+     120000,
+     15512
     ],
     "inertia": "low",
     "spring": "mid",
@@ -1173,22 +1623,22 @@
   [
    280000,
    200000,
-   6000
+   8259
   ],
   [
    420000,
    200000,
-   6000
+   13912
   ],
   [
    300000,
    120000,
-   6000
+   10498
   ],
   [
    560000,
    200000,
-   30000
+   44112
   ]
  ],
  "view": {
@@ -1205,7 +1655,7 @@
    },
    "Z": {
     "on": true,
-    "f": 0.02
+    "f": 0.08
    }
   },
   "stride": 3,
