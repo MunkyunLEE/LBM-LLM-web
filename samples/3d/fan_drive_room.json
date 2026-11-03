@@ -1,0 +1,190 @@
+{
+ "version": 3,
+ "dim": 3,
+ "backend": "auto",
+ "fluid": {
+  "preset": "air",
+  "nu": 1.5e-05,
+  "rho": 1.2
+ },
+ "les": {
+  "enabled": true,
+  "cs": 0.15
+ },
+ "u_lat_max": 0.06,
+ "frames": 120,
+ "sponge": 10,
+ "particles": 20000,
+ "patches": [
+  {
+   "face": "xmax",
+   "shape": "rect",
+   "cu": 2000,
+   "cv": 1500,
+   "a": 1600,
+   "b": 1000,
+   "type": "pressure",
+   "p": 0,
+   "un": 0
+  },
+  {
+   "face": "xmin",
+   "shape": "rect",
+   "cu": 1000,
+   "cv": 1000,
+   "a": 800,
+   "b": 1800,
+   "type": "velocity",
+   "un": 0.3,
+   "p": 0
+  }
+ ],
+ "snap": {
+  "on": true,
+  "step": 100
+ },
+ "name": "fan_drive_room",
+ "title": "② 실내 선풍기 구동 (rpm 지정) + 창문 개구부",
+ "Lx": 5000,
+ "Ly": 4000,
+ "Lz": 2800,
+ "Nx": 100,
+ "duration": 8,
+ "ramp": 1,
+ "faces": {
+  "xmin": {
+   "type": "wall"
+  },
+  "xmax": {
+   "type": "wall"
+  },
+  "ymin": {
+   "type": "wall"
+  },
+  "ymax": {
+   "type": "wall"
+  },
+  "zmin": {
+   "type": "wall"
+  },
+  "zmax": {
+   "type": "wall"
+  }
+ },
+ "objects": [
+  {
+   "name": "선풍기 날개",
+   "mesh": {
+    "gen": {
+     "type": "rotor",
+     "R": 450,
+     "blades": 4,
+     "pitch": 28,
+     "twist": 10
+    }
+   },
+   "pos": [
+    1500,
+    2000,
+    1300
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "both",
+   "kin": {
+    "mode": "drive",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     1500,
+     2000,
+     1300
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 180,
+    "dir": "cw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "테이블",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 1200,
+     "b": 800,
+     "c": 60
+    }
+   },
+   "pos": [
+    3600,
+    1200,
+    750
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "both",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     3600,
+     1200,
+     750
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  }
+ ],
+ "view": {
+  "field": "umag",
+  "range": "frame",
+  "slices": {
+   "X": {
+    "on": false,
+    "f": 0.35
+   },
+   "Y": {
+    "on": true,
+    "f": 0.5
+   },
+   "Z": {
+    "on": true,
+    "f": 0.46
+   }
+  },
+  "stride": 3,
+  "streamPlane": "Y",
+  "psize": 2
+ }
+}

@@ -1,0 +1,123 @@
+{
+ "version": 3,
+ "dim": 3,
+ "backend": "auto",
+ "fluid": {
+  "preset": "custom",
+  "nu": 0.0016,
+  "rho": 1.0
+ },
+ "les": {
+  "enabled": false,
+  "cs": 0.15
+ },
+ "u_lat_max": 0.05,
+ "frames": 120,
+ "sponge": 12,
+ "particles": 10000,
+ "patches": [],
+ "snap": {
+  "on": true,
+  "step": 100
+ },
+ "name": "sphere_re100",
+ "title": "④ 검증: 구 항력 Re=100 (Schiller–Naumann 비교)",
+ "Lx": 1600,
+ "Ly": 640,
+ "Lz": 640,
+ "Nx": 160,
+ "duration": 4,
+ "ramp": 1,
+ "faces": {
+  "xmin": {
+   "type": "velocity",
+   "ux": 1,
+   "uy": 0,
+   "uz": 0
+  },
+  "xmax": {
+   "type": "pressure",
+   "p": 0
+  },
+  "ymin": {
+   "type": "slip"
+  },
+  "ymax": {
+   "type": "slip"
+  },
+  "zmin": {
+   "type": "slip"
+  },
+  "zmax": {
+   "type": "slip"
+  }
+ },
+ "objects": [
+  {
+   "name": "구 D160",
+   "mesh": {
+    "gen": {
+     "type": "sphere",
+     "r": 80,
+     "seg": 32
+    }
+   },
+   "pos": [
+    480,
+    320,
+    320
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     480,
+     320,
+     320
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  }
+ ],
+ "view": {
+  "field": "umag",
+  "range": "frame",
+  "slices": {
+   "X": {
+    "on": false,
+    "f": 0.35
+   },
+   "Y": {
+    "on": true,
+    "f": 0.5
+   },
+   "Z": {
+    "on": false,
+    "f": 0.5
+   }
+  },
+  "stride": 4,
+  "streamPlane": "Y",
+  "psize": 2
+ }
+}

@@ -1,0 +1,32 @@
+#view3d { position: absolute; inset: 0; }
+#view3d canvas { display: block; width: 100%; height: 100%; outline: none; }
+input[type=text] { width: 100%; height: 28px; border: 1px solid var(--line); border-radius: 6px; padding: 0 7px; font-size: 12px; color: var(--text); background: var(--input); font-family: inherit; display: block; margin-top: 3px; }
+.unitsel { width: 72px; }
+.pivot3 { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; align-items: end; }
+.snaprow { align-items: end; margin-top: 4px; }
+.snaprow .check { margin-bottom: 14px; }
+.face-row { display: grid; grid-template-columns: 44px 96px 1fr 1fr 1fr; gap: 5px; align-items: center; margin-bottom: 6px; }
+.face-row .fname { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+.face-row .fname i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.face-row input, .face-row select { height: 26px; margin: 0; }
+.face-row label { margin: 0; }
+.slicerow { display: grid; grid-template-columns: 82px 1fr 64px; gap: 8px; align-items: center; margin-bottom: 6px; }
+.slicerow .check { margin: 0; }
+.slicerow input[type=range] { width: 100%; accent-color: var(--accent); }
+.slicerow span { font-size: 11px; color: var(--muted); text-align: right; }
+.playbar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: var(--overlay);
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 5px 10px; width: min(560px, calc(100% - 380px)); min-width: 260px; }
+.playbar input { flex: 1; accent-color: var(--accent); }
+.playbar span { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.axisinfo { position: absolute; right: 12px; top: 12px; font-size: 11px; color: var(--muted); background: var(--overlay); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; display: flex; gap: 4px; align-items: center; }
+.axisinfo i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; }
+.ax-x { background: #e5534b; } .ax-y { background: #3fb950; } .ax-z { background: #4f8cff; }
+.cursor { bottom: 56px; }
+.legend { bottom: 56px; }
+.hdr-select { max-width: 240px; }
+header { gap: 14px; }
+.brand small { white-space: nowrap; }
+.status { min-width: 120px; }
+.progress { max-width: 180px; }
+#progText { font-size: 11px; }
+.hdr-actions { flex: none; }

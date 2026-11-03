@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LBM Flow Lab 3D</title>
+<meta name="description" content="브라우저에서 바로 실행되는 3D 격자 볼츠만(LBM) 유동·FSI 시뮬레이터">
+<script>
+(() => {
+  let pref = 'system';
+  try { pref = localStorage.getItem('lbm-theme') || 'system'; } catch (_) {}
+  const light = pref === 'light' || (pref === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+})();
+</script>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style3d.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo">◩</span> LBM Flow Lab <small>3D · D3Q19 · <span id="devName">계산 장치 확인 중…</span></small></div>
+  <nav class="dimnav"><a href="index.html">2D</a><a class="on" href="3d.html">3D</a></nav>
+  <div class="status">
+    <span id="stateBadge" class="badge idle">대기</span>
+    <div class="progress"><div id="progBar"></div></div>
+    <span id="progText" class="mono">–</span>
+  </div>
+  <div class="hdr-actions">
+    <select id="selExample" class="hdr-select" title="예제 케이스 불러오기"><option value="">예제 케이스…</option></select>
+    <button id="btnSaveCase" class="ghost" title="현재 설정을 JSON으로 저장">케이스 저장</button>
+    <label class="ghost btnlike" title="저장한 JSON 불러오기">불러오기<input id="fileCase" type="file" accept=".json" hidden></label>
+    <button id="btnTheme" class="ghost theme-btn" title="테마: 시스템 설정">◐</button>
+  </div>
+</header>
+
+<main>
+<aside id="side">
+  <section>
+    <h2><span class="num">1</span>도메인 · 격자</h2>
+    <div class="grid3">
+      <label>L<sub>x</sub> <em>mm</em><input id="inLx" type="number" step="100" min="10" value="4000"></label>
+      <label>L<sub>y</sub> <em>mm</em><input id="inLy" type="number" step="100" min="10" value="2400"></label>
+      <label>L<sub>z</sub> <em>mm</em><input id="inLz" type="number" step="100" min="10" value="2400"></label>
+    </div>
+    <div class="grid3">
+      <label>x 분할 N<sub>x</sub><input id="inNx" type="number" step="4" min="8" value="80"></label>
+      <label>계산 장치<select id="inBackend"><option value="auto">자동</option><option value="gpu">GPU (WebGPU)</option><option value="cpu">CPU</option></select></label>
+      <span></span>
+    </div>
+    <p class="readout" id="gridInfo"></p>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>유체</h2>
+    <div class="grid3">
+      <label>종류<select id="inFluid"><option value="air">공기 20°C</option><option value="water">물 20°C</option><option value="custom">직접 입력</option></select></label>
+      <label>ν <em>m²/s</em><input id="inNu" type="number" step="any" value="1.5e-5"></label>
+      <label>ρ <em>kg/m³</em><input id="inRho" type="number" step="any" value="1.2"></label>
+    </div>
+    <label class="check"><input id="inLes" type="checkbox" checked> LES (Smagorinsky)</label>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>객체 <span class="sub">STL · OBJ</span></h2>
+    <div class="row">
+      <label class="btnlike primary-outline">STL/OBJ 불러오기<input id="fileMesh" type="file" accept=".stl,.obj" multiple hidden></label>
+      <select id="inUnit" class="unitsel" title="파일 단위"><option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option><option value="inch">inch</option></select>
+    </div>
+    <div class="row">
+      <button id="btnAddSphere" class="ghost small">+ 구</button>
+      <button id="btnAddBox" class="ghost small">+ 상자</button>
+      <button id="btnAddRotor" class="ghost small">+ 로터</button>
+      <button id="btnAddPlate" class="ghost small">+ 판</button>
+    </div>
+    <ul id="objList" class="list"></ul>
+    <div id="objEditor" class="editor hidden">
+      <div class="grid2">
+        <label>이름<input id="obName" type="text"></label>
+        <label>역할<select id="obRole"><option value="solid">고체</option><option value="inlet">유입 영역</option><option value="outlet">유출 영역</option></select></label>
+      </div>
+      <div class="grid3">
+        <label>x <em>mm</em><input id="obX" type="number" step="10"></label>
+        <label>y <em>mm</em><input id="obY" type="number" step="10"></label>
+        <label>z <em>mm</em><input id="obZ" type="number" step="10"></label>
+      </div>
+      <div class="grid3">
+        <label>회전 X <em>°</em><input id="obRx" type="number" step="15"></label>
+        <label>회전 Y <em>°</em><input id="obRy" type="number" step="15"></label>
+        <label>회전 Z <em>°</em><input id="obRz" type="number" step="15"></label>
+      </div>
+      <div class="grid3">
+        <label>배율<input id="obScale" type="number" step="0.1" min="0.001"></label>
+        <label>복셀화<select id="obVoxel"><option value="auto">자동</option><option value="solid">닫힌 솔리드</option><option value="shell">쉘(면)</option><option value="both">솔리드+쉘</option></select></label>
+        <span></span>
+      </div>
+      <div class="row">
+        <button id="obFloor" class="ghost small">바닥에 놓기</button>
+        <button id="obCenter" class="ghost small">도메인 중앙</button>
+        <button id="obDup" class="ghost small">복제</button>
+        <button id="obDel" class="danger small">삭제</button>
+      </div>
+      <div id="roleBox" class="subbox hidden"></div>
+      <div id="kinBox" class="subbox">
+        <h4>Kinematics (유체력에 의한 운동)</h4>
+        <div class="grid2">
+          <label>모드<select id="kinMode"><option value="off">OFF (고정)</option><option value="free">자유 회전</option><option value="hinge">힌지 (스프링·각도 제한)</option><option value="drive">구동 (rpm 지정)</option></select></label>
+          <label>회전축<select id="kinAxis"><option value="x">X</option><option value="y">Y</option><option value="z">Z</option><option value="custom">사용자 벡터</option></select></label>
+        </div>
+        <div id="kinOpts" class="hidden">
+          <div class="grid3 hidden" id="kinAxisVec">
+            <label>a<sub>x</sub><input id="axX" type="number" step="0.1"></label>
+            <label>a<sub>y</sub><input id="axY" type="number" step="0.1"></label>
+            <label>a<sub>z</sub><input id="axZ" type="number" step="0.1"></label>
+          </div>
+          <div class="pivot3">
+            <label>축 위치 x<input id="pvX" type="number" step="10"></label>
+            <label>y<input id="pvY" type="number" step="10"></label>
+            <label>z<input id="pvZ" type="number" step="10"></label>
+            <button id="btnPivot" class="ghost toggle" title="선택 객체의 앵커(꼭짓점 8 · 면 중심 6)를 클릭해 회전축 위치 지정">⊕ 앵커</button>
+          </div>
+          <div class="grid3" id="kinPresets">
+            <label>관성<select id="kinI"><option value="low">작게</option><option value="mid">보통</option><option value="high">크게</option></select></label>
+            <label id="kinKWrap">강성<select id="kinK"><option value="soft">부드럽게</option><option value="mid">보통</option><option value="stiff">단단하게</option></select></label>
+            <label>감쇠<select id="kinC"><option value="low">작게</option><option value="mid">보통</option><option value="high">크게</option></select></label>
+          </div>
+          <div class="grid2" id="kinDrive">
+            <label>회전수 <em>rpm</em><input id="kinRpm" type="number" step="10" min="0"></label>
+            <label>방향<select id="kinDir"><option value="ccw">반시계 (축 +)</option><option value="cw">시계 (축 −)</option></select></label>
+          </div>
+          <details class="adv" id="kinAdv">
+            <summary>고급 물성 직접 입력</summary>
+            <label class="check"><input id="advOn" type="checkbox"> 프리셋 대신 아래 값 사용</label>
+            <div class="grid3">
+              <label>I <em>kg·m²</em><input id="advI" type="number" step="any"></label>
+              <label>c <em>N·m·s</em><input id="advC" type="number" step="any"></label>
+              <label>k <em>N·m/rad</em><input id="advK" type="number" step="any"></label>
+            </div>
+            <div class="grid2">
+              <label>최소 각 <em>°</em><input id="advMin" type="number" step="5"></label>
+              <label>최대 각 <em>°</em><input id="advMax" type="number" step="5"></label>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+    <div class="grid2 snaprow">
+      <label class="check"><input id="chkSnap" type="checkbox" checked> 그리드 스냅 (앵커 14점)</label>
+      <label>간격 <em>mm</em><input id="inSnap" type="number" step="10" min="1" value="100"></label>
+    </div>
+    <p class="hint">클릭으로 선택 · 드래그로 수평 이동 · Shift+드래그로 수직 이동 · 빈 곳 드래그로 시점 회전. 스냅은 객체 경계상자의 꼭짓점 8개와 면 중심 6개만 격자점에 붙습니다.</p>
+    <p class="hint">불러온 파일과 계산은 모두 이 브라우저 안에서만 처리되며, 어디에도 전송되지 않습니다.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>경계조건</h2>
+    <div id="faceRows"></div>
+    <h3>면 위 구간(patch) <span class="sub" id="patchCount"></span></h3>
+    <div class="row">
+      <button id="btnAddPatch" class="ghost small">+ 사각형</button>
+      <button id="btnAddCircle" class="ghost small">+ 원</button>
+      <label class="btnlike ghost small">DXF 닫힌 곡선<input id="filePatchDxf" type="file" accept=".dxf" hidden></label>
+    </div>
+    <ul id="patchList" class="list"></ul>
+    <div id="patchEditor" class="editor hidden">
+      <div class="grid3">
+        <label>면<select id="paFace"></select></label>
+        <label>종류<select id="paType"><option value="velocity">유입 속도</option><option value="pressure">압력</option><option value="outflow">자유 유출</option></select></label>
+        <label id="paValWrap">값<input id="paVal" type="number" step="0.1"></label>
+      </div>
+      <div class="grid3">
+        <label>중심 u <em>mm</em><input id="paCu" type="number" step="10"></label>
+        <label>중심 v <em>mm</em><input id="paCv" type="number" step="10"></label>
+        <span></span>
+      </div>
+      <div class="grid3" id="paSize">
+        <label>폭 a <em>mm</em><input id="paA" type="number" step="10" min="1"></label>
+        <label>높이 b <em>mm</em><input id="paB" type="number" step="10" min="1"></label>
+        <label>반지름 r <em>mm</em><input id="paR" type="number" step="10" min="1"></label>
+      </div>
+      <button id="paDel" class="danger wide">구간 삭제</button>
+    </div>
+    <p class="hint">면 좌표 (u, v): x면은 (y, z), y면은 (x, z), z면은 (x, y). 유입 속도는 면에 수직이며 도메인 안쪽이 +입니다.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span>해석</h2>
+    <div class="grid3">
+      <label>해석 시간 <em>s</em><input id="inDur" type="number" step="0.5" min="0.1" value="8"></label>
+      <label>속도 램프 <em>s</em><input id="inRamp" type="number" step="0.5" min="0" value="1"></label>
+      <label>프레임<input id="inFrames" type="number" step="10" min="10" max="400" value="120"></label>
+    </div>
+    <div class="grid3">
+      <label>u<sub>lat,max</sub><input id="inUlat" type="number" step="0.01" min="0.01" max="0.15" value="0.06"></label>
+      <label>흡수층 <em>%</em><input id="inSponge" type="number" step="1" min="0" max="25" value="10"></label>
+      <label>입자 수<input id="inParts" type="number" step="1000" min="0" max="100000" value="20000"></label>
+    </div>
+    <div id="params" class="params"></div>
+    <div id="warns"></div>
+    <div class="row run-row">
+      <button id="btnVoxel" class="ghost">복셀 미리보기</button>
+      <button id="btnPause" class="ghost" disabled>일시정지</button>
+      <button id="btnStop" class="danger-outline" disabled>■ Stop</button>
+    </div>
+    <button id="btnRun" class="primary wide run-main">▶ Run</button>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span>결과 표시</h2>
+    <div class="grid2">
+      <label>표시 필드<select id="inField"><option value="umag">속도 크기 |u|</option><option value="ux">u<sub>x</sub></option><option value="uy">u<sub>y</sub></option><option value="uz">u<sub>z</sub></option><option value="pressure">압력 p</option><option value="vort">단면 수직 와도 ω<sub>n</sub></option></select></label>
+      <label>색 범위<select id="inRange"><option value="frame">프레임마다</option><option value="run">전체 고정</option></select></label>
+    </div>
+    <div class="slicerow"><label class="check"><input id="slX" type="checkbox"> X 단면</label><input id="slXv" type="range" min="0" max="1000" value="350"><span id="slXt" class="mono"></span></div>
+    <div class="slicerow"><label class="check"><input id="slY" type="checkbox" checked> Y 단면</label><input id="slYv" type="range" min="0" max="1000" value="500"><span id="slYt" class="mono"></span></div>
+    <div class="slicerow"><label class="check"><input id="slZ" type="checkbox"> Z 단면</label><input id="slZv" type="range" min="0" max="1000" value="500"><span id="slZt" class="mono"></span></div>
+    <div class="grid3">
+      <label>벡터 간격<input id="inStride" type="number" min="1" max="32" value="3"></label>
+      <label>유선 단면<select id="inStreamPlane"><option value="Y">Y</option><option value="Z">Z</option><option value="X">X</option></select></label>
+      <label>입자 크기<input id="inPsize" type="number" min="1" max="8" value="2"></label>
+    </div>
+    <div class="row">
+      <label class="check"><input id="chkSolidHide" type="checkbox"> 결과에서 객체 반투명</label>
+    </div>
+    <div class="grid3">
+      <label>GIF FPS<input id="inFps" type="number" min="1" max="50" value="15"></label>
+      <label>GIF 폭 <em>px</em><input id="inGifW" type="number" min="240" max="1280" step="40" value="640"></label>
+      <span></span>
+    </div>
+    <button id="btnGif" class="primary wide" disabled>GIF 만들기 (현재 시점)</button>
+    <div id="gifBox" class="gifbox hidden"><img id="gifImg" alt="GIF 미리보기"><a id="gifLink" download="lbm3d.gif">GIF 다운로드</a></div>
+    <p class="hint">단면 위치를 바꾸면 계산 중에는 다음 프레임부터, 계산 후에는 마지막 상태로 다시 잘라 보여줍니다.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span>물체 하중</h2>
+    <div class="tablewrap"><table class="loads" id="loadTable"></table></div>
+    <div class="grid2">
+      <label>객체<select id="loadObj"></select></label>
+      <label>항목<select id="loadQty"><option value="fx">F<sub>x</sub> [N]</option><option value="fy">F<sub>y</sub> [N]</option><option value="fz">F<sub>z</sub> [N]</option><option value="ma">축 모멘트 [N·m]</option><option value="theta">각도 [°]</option><option value="rpm">회전수 [rpm]</option></select></label>
+    </div>
+    <canvas id="loadChart" width="336" height="140"></canvas>
+    <p class="hint">모멘트 기준점은 움직이는 객체는 회전축 위치, 고정 객체는 경계상자 중심입니다. 평균은 해석 후반 50% 구간입니다.</p>
+  </section>
+</aside>
+
+<section id="stage">
+  <div id="view3d"></div>
+  <div class="toolbar">
+    <div class="seg" id="viewSeg">
+      <button data-view="edit" class="on">편집</button>
+      <button data-view="result">결과</button>
+    </div>
+    <label class="check small"><input id="chkGrid" type="checkbox" checked> 격자</label>
+    <label class="check small"><input id="chkVox" type="checkbox"> 복셀</label>
+    <label class="check small"><input id="chkBC" type="checkbox" checked> 경계면</label>
+    <span class="sep"></span>
+    <label class="check small"><input id="chkVec" type="checkbox"> 벡터</label>
+    <label class="check small"><input id="chkStream" type="checkbox"> 유선</label>
+    <label class="check small"><input id="chkPart" type="checkbox" checked> 입자</label>
+    <span class="sep"></span>
+    <div class="seg" id="camSeg">
+      <button data-cam="iso">ISO</button><button data-cam="top">위</button><button data-cam="front">정면</button><button data-cam="side">측면</button>
+    </div>
+    <button id="btnFit" class="ghost small">화면 맞춤</button>
+  </div>
+  <div id="legend" class="legend hidden">
+    <div id="lgName" class="lg-name"></div>
+    <canvas id="legendCv" width="160" height="10"></canvas>
+    <div class="lg-labels"><span id="lgLo"></span><span id="lgHi"></span></div>
+  </div>
+  <div id="play" class="playbar hidden">
+    <button id="btnPlay" class="ghost small">▶</button>
+    <input id="playSlider" type="range" min="0" max="0" value="0">
+    <span id="playText" class="mono"></span>
+  </div>
+  <div id="axisInfo" class="axisinfo mono">X <i class="ax-x"></i> Y <i class="ax-y"></i> Z <i class="ax-z"></i></div>
+  <div id="modeHint" class="modehint hidden"></div>
+  <div id="cursorInfo" class="cursor mono"></div>
+  <div id="toast" class="toast hidden"></div>
+</section>
+</main>
+<script type="module" src="js/app3d.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+ "cases": [
+  {
+   "file": "turbine_free.json",
+   "title": "① 풍차형 로터 자유 회전 (유체 구동 FSI)"
+  },
+  {
+   "file": "fan_drive_room.json",
+   "title": "② 실내 선풍기 구동 (rpm 지정) + 창문 개구부"
+  },
+  {
+   "file": "hinge_flap.json",
+   "title": "③ 힌지 판 (스프링 복원) — 유동에 의한 회전"
+  },
+  {
+   "file": "sphere_re100.json",
+   "title": "④ 검증: 구 항력 Re=100 (Schiller–Naumann 비교)"
+  },
+  {
+   "file": "room_vent.json",
+   "title": "⑤ 실내 환기: 면 구간 유입·유출 + 장애물"
+  }
+ ]
+}

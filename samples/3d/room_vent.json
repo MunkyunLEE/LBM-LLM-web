@@ -1,0 +1,187 @@
+{
+ "version": 3,
+ "dim": 3,
+ "backend": "auto",
+ "fluid": {
+  "preset": "air",
+  "nu": 1.5e-05,
+  "rho": 1.2
+ },
+ "les": {
+  "enabled": true,
+  "cs": 0.15
+ },
+ "u_lat_max": 0.06,
+ "frames": 120,
+ "sponge": 10,
+ "particles": 20000,
+ "patches": [
+  {
+   "face": "zmax",
+   "shape": "rect",
+   "cu": 1200,
+   "cv": 2000,
+   "a": 600,
+   "b": 600,
+   "type": "velocity",
+   "un": 2.0,
+   "p": 0
+  },
+  {
+   "face": "xmax",
+   "shape": "circle",
+   "cu": 3000,
+   "cv": 500,
+   "r": 350,
+   "type": "pressure",
+   "p": 0,
+   "un": 0
+  }
+ ],
+ "snap": {
+  "on": true,
+  "step": 100
+ },
+ "name": "room_vent",
+ "title": "⑤ 실내 환기: 면 구간 유입·유출 + 장애물",
+ "Lx": 6000,
+ "Ly": 4000,
+ "Lz": 3000,
+ "Nx": 96,
+ "duration": 20,
+ "ramp": 2,
+ "faces": {
+  "xmin": {
+   "type": "wall"
+  },
+  "xmax": {
+   "type": "wall"
+  },
+  "ymin": {
+   "type": "wall"
+  },
+  "ymax": {
+   "type": "wall"
+  },
+  "zmin": {
+   "type": "wall"
+  },
+  "zmax": {
+   "type": "wall"
+  }
+ },
+ "objects": [
+  {
+   "name": "캐비닛",
+   "mesh": {
+    "gen": {
+     "type": "box",
+     "a": 800,
+     "b": 1600,
+     "c": 1800
+    }
+   },
+   "pos": [
+    3400,
+    1800,
+    900
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     3400,
+     1800,
+     900
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  },
+  {
+   "name": "사람(구)",
+   "mesh": {
+    "gen": {
+     "type": "sphere",
+     "r": 300,
+     "seg": 20
+    }
+   },
+   "pos": [
+    1800,
+    1000,
+    1100
+   ],
+   "rot": [
+    0,
+    0,
+    0
+   ],
+   "scale": 1,
+   "role": "solid",
+   "voxel": "solid",
+   "kin": {
+    "mode": "off",
+    "axis": [
+     1,
+     0,
+     0
+    ],
+    "axisSel": "x",
+    "pivot": [
+     1800,
+     1000,
+     1100
+    ],
+    "inertia": "low",
+    "spring": "mid",
+    "damping": "low",
+    "rpm": 120,
+    "dir": "ccw",
+    "advanced": {
+     "enabled": false
+    }
+   }
+  }
+ ],
+ "view": {
+  "field": "umag",
+  "range": "frame",
+  "slices": {
+   "X": {
+    "on": false,
+    "f": 0.35
+   },
+   "Y": {
+    "on": true,
+    "f": 0.5
+   },
+   "Z": {
+    "on": true,
+    "f": 0.35
+   }
+  },
+  "stride": 3,
+  "streamPlane": "Y",
+  "psize": 2
+ }
+}

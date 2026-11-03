@@ -1,6 +1,9 @@
 # LBM Flow Lab
 
-브라우저에서 바로 실행되는 2D 격자 볼츠만(Lattice Boltzmann Method) 유동 시뮬레이터입니다.
+브라우저에서 바로 실행되는 2D·3D 격자 볼츠만(Lattice Boltzmann Method) 유동 시뮬레이터입니다.
+
+- **2D** (`index.html`): D2Q9, DXF 형상, IBM 기반 간이 FSI
+- **3D** (`3d.html`): D3Q19, WebGPU 병렬 계산(미지원 시 CPU), STL/OBJ 형상, 회전 강체 FSI
 설치 없이 링크만 열면 형상을 배치하고, 경계조건과 유입·유출 영역을 지정하고, 유동과 물체 하중을 계산하고, 바람에 움직이는 구조물(간이 FSI)까지 볼 수 있습니다.
 
 - 계산은 모두 브라우저(Web Worker) 안에서 이루어지며, 불러온 DXF 파일은 어디에도 전송되지 않습니다.
@@ -47,6 +50,26 @@ LINE, LWPOLYLINE(호 구간 포함), POLYLINE, CIRCLE, ARC, ELLIPSE, SPLINE(유�
 
 2D 해석이므로 실스케일 공기·물(고 Re)의 정량 해석보다는 유동 패턴과 상대 비교 용도에 적합합니다.
 
+## 3D (v0.4)
+
+| 단계 | 내용 |
+|---|---|
+| 도메인 | Lx × Ly × Lz [mm] 직육면체, z = 0 바닥, 바닥·벽면 격자선, x 분할 수 Nx |
+| 계산 장치 | 자동(WebGPU 우선) / GPU / CPU. GPU 셀 상한 800만, CPU 100만 |
+| 객체 | STL·OBJ 불러오기(mm/cm/m/inch), 구·상자·로터·판 기본 형상, 이동·회전·배율·복제, 바닥 놓기 |
+| 스냅 | 경계상자 꼭짓점 8개 + 면 중심 6개 앵커만 격자점에 스냅, Shift+드래그로 수직 이동 |
+| 객체 역할 | 고체 / 유입 영역(속도 벡터) / 유출 영역(압력) |
+| Kinematics | OFF / 자유 회전 / 힌지(스프링·각도 제한) / 구동(rpm). 회전축 X·Y·Z·사용자 벡터, 축 위치는 앵커 클릭 또는 숫자, 물성 프리셋 + 고급 입력(숨김) |
+| 경계조건 | 6면별 벽 / 미끄럼 / 속도 / 압력 / 자유 유출, 면 위 구간(사각형·원·DXF 닫힌 곡선) |
+| 결과 | X·Y·Z 단면(속도 크기·성분, 압력, 수직 와도), 단면 벡터, 단면 유선, 3D 입자, 회전하는 객체, 커서 값 읽기 |
+| 하중 | 객체별 Fx, Fy, Fz, 축 모멘트, 각도, 회전수 표 + 시계열 |
+| GIF | 3D 뷰 캡처(시점 그대로), FPS·폭 지정 |
+| 예제 | 풍차형 로터 자유 회전, 실내 선풍기 구동, 힌지 판, 구 항력 검증, 실내 환기 |
+
+3D 솔버 요약: 정칙화 BGK + LES, 면 경계(bounce-back / 대칭 반사 / Ladd 속도 / anti-bounce-back 압력 / 0구배 유출), 열린 면 흡수층(밀도 이동평균 이완), 운동량 교환 하중, 이동 경계 bounce-back + 매 스텝 재복셀화로 강체 회전, 부가질량 안정화. 자세한 설계와 검증은 [docs/PLAN_3D.md](docs/PLAN_3D.md)에 있습니다.
+
+Rhino에서 내보낼 때는 **STL(바이너리, mm)** 을 권장합니다. 닫힌 메쉬는 솔리드로, 열린 메쉬(판·쉘)는 두께 약 1.8셀의 쉘로 복셀화됩니다.
+
 ## 로컬 실행
 
 모듈 Web Worker를 사용하므로 파일을 더블클릭(`file://`)하면 동작하지 않습니다. 간단한 로컬 서버로 여세요.
@@ -72,9 +95,21 @@ js/lbm/dxf.js        DXF 파서
 js/lbm/render.js     컬러맵, 양자화, GIF 생성
 js/vendor/gifenc     GIF 인코더 (MIT, Matt DesLauriers)
 samples/             샘플 DXF, 예제 케이스 JSON
-docs/PLAN_3D.md      3D 및 간이 FSI 계획
+3d.html, css/style3d.css
+js/app3d.js          3D 편집기·결과 UI
+js/view3d.js         three.js 장면(도메인, 격자, 객체, 앵커, 단면, 입자)
+js/results3d.js      단면 필드·벡터·유선·입자 변환
+js/worker3d.js       3D 해석 루프(GPU/CPU 선택, 프레임 기록)
+js/lbm3d/setup.js    케이스 → 격자·경계표·강체 데이터
+js/lbm3d/gpu.js      WebGPU(WGSL) D3Q19 커널
+js/lbm3d/cpu.js      CPU D3Q19 (같은 알고리즘)
+js/lbm3d/mesh.js     STL/OBJ 파서, 복셀화(솔리드·쉘)
+js/lbm3d/shapes.js   기본 형상 생성(구, 상자, 로터)
+js/vendor/three      three.js r170 (MIT)
+samples/3d/          3D 예제 케이스
+docs/PLAN_3D.md      3D 및 간이 FSI 계획·현황
 ```
 
 ## 지원 브라우저
 
-최신 Chrome, Edge, Firefox, Safari (모듈 Web Worker, OffscreenCanvas 필요)
+최신 Chrome, Edge, Firefox, Safari (모듈 Web Worker, OffscreenCanvas 필요). 3D GPU 계산은 WebGPU 지원 브라우저(Chrome·Edge 113+, Safari 26+)에서 동작하며, 지원하지 않으면 CPU로 계산합니다.
