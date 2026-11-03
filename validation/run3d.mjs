@@ -44,10 +44,10 @@ function ductProfile(y, z) {
 }
 
 function sphere(Re) {
-  const D = +(process.env.D || 10), dx = 10, U = 0.1, L = 15 * D, H = 6 * D;
+  const D = +(process.env.D || 10), dx = 10, U = 0.1, L = 16 * D, H = 6 * D;
   const c = { Lx: L * dx, Ly: H * dx, Lz: H * dx, Nx: L, fluid: { nu: U * D * dx / 1000 / Re, rho: 1 }, les: { enabled: false }, u_lat_max: 0.05, duration: 1e9, ramp: 4, sponge: 10,
     faces: { xmin: { type: 'velocity', ux: U }, xmax: { type: 'pressure', p: 0 }, ymin: slip, ymax: slip, zmin: slip, zmax: slip },
-    objects: [{ name: 'sphere', mesh: { gen: { type: 'sphere', r: D * dx / 2, seg: 40 } }, pos: [4.5 * D * dx, H * dx / 2 + 0.2 * dx, H * dx / 2 + 0.1 * dx], voxel: 'solid' }] };
+    objects: [{ name: 'sphere', mesh: { gen: { type: 'sphere', r: D * dx / 2, seg: 40 } }, pos: [5.5 * D * dx, H * dx / 2 + 0.2 * dx, H * dx / 2 + 0.1 * dx], voxel: 'solid' }] };
   const S = buildSetup(c), s = new CPUSolver(S), q = 0.5 * 0.05 ** 2 * Math.PI * D * D / 4, steps = +(process.env.STEPS || 10000), hist = [];
   for (let n = 0; n < steps; n += 100) { s.run(100); hist.push([s.step, s.loads[0] / q]); if (n % 1000 === 0) process.stdout.write(`sphere ${Re} ${n} ${(s.loads[0] / q).toFixed(3)}\n`); }
   const tail = hist.slice(-20), cd = tail.reduce((a, b) => a + b[1], 0) / tail.length;

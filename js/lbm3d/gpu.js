@@ -23,7 +23,7 @@ const STREAM = COMMON + /* wgsl */`
 @group(0) @binding(4) var<storage, read_write> mac: array<vec4<f32>>;
 @group(0) @binding(5) var<storage, read> misc: array<f32>;
 @group(0) @binding(6) var<storage, read_write> acc: array<atomic<i32>>;
-@group(0) @binding(13) var<storage, read_write> rbar: array<f32>;
+@group(0) @binding(13) var<storage, read_write> aux: array<u32>;
 @group(0) @binding(14) var<storage, read_write> mean: array<vec4<f32>>;
 var<private> R0: array<u32,19> = ${arr('u32', REFL[0])};
 var<private> R1: array<u32,19> = ${arr('u32', REFL[1])};
@@ -84,6 +84,20 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
       let fo = fa[o * N + k]; let own = (cs >> 2u) & 255u;
       let X = vec3<f32>(f32(x) + 0.5, f32(y) + 0.5, f32(z) + 0.5) - 0.5 * e;
       var fi = fo;
+      let qo = aux[N + k];
+      if ((cs & 3u) == 1u && qo != 0u) {
+        let qc = (aux[2u * N + (qo - 1u) * 5u + i / 4u] >> (8u * (i % 4u))) & 255u;
+        if (qc != 0u) {
+          let q = f32(qc) / 255.0;
+          if (q < 0.5) {
+            let gx = x + EX[i]; let gy = y + EY[i]; let gz = z + EZ[i];
+            if (gx >= 0 && gy >= 0 && gz >= 0 && gx < Nx && gy < Ny && gz < Nz) {
+              let kf = u32(gx + Nx * (gy + Ny * gz));
+              if ((cell[kf] & 3u) == 0u) { fi = 2.0 * q * fo + (1.0 - 2.0 * q) * fa[o * N + kf]; }
+            }
+          } else { fi = fo / (2.0 * q) + (1.0 - 1.0 / (2.0 * q)) * fa[i * N + k]; }
+        }
+      }
       if ((cs & 3u) == 2u) { fi += 6.0 * W[i] * dot(e, wallVel(bodyOf(own), X)); }
       f[i] = fi;
       if (own != 255u) {
@@ -161,7 +175,7 @@ fn main(@builtin(global_invocation_id) g: vec3<u32>) {
   }
   var sg = 0.0;
   let sp = spongeAt(x, y, z);
-  if (sp > 0.0) { let rb = rbar[k] + p.alpha * (r - rbar[k]); rbar[k] = rb; sg = sp * (rb - r); }
+  if (sp > 0.0) { let r0 = bitcast<f32>(aux[k]); let rb = r0 + p.alpha * (r - r0); aux[k] = bitcast<u32>(rb); sg = sp * (rb - r); }
   let vsq = 1.5 * dot(v, v);
   for (var i = 0u; i < 19u; i++) {
     let e = vec3<f32>(f32(EX[i]), f32(EY[i]), f32(EZ[i]));
@@ -367,7 +381,12 @@ export class GPUSolver {
     dev.lost.then(() => { this.lost = true; });
     const SU = GPUBufferUsage.STORAGE, CD = GPUBufferUsage.COPY_DST, CS = GPUBufferUsage.COPY_SRC;
     const mk = (size, usage = SU | CD | CS) => dev.createBuffer({ size: Math.max(16, Math.ceil(size / 16) * 16), usage });
-    const rbar = mk(4 * N); dev.queue.writeBuffer(rbar, 0, new Float32Array(N).fill(1));
+    const auxArr = new Uint32Array(2 * N + S.qtab.length);
+    new Float32Array(auxArr.buffer, 0, N).fill(1);
+    auxArr.set(S.qoff, N); auxArr.set(S.qtab, 2 * N);
+    const need2 = 4 * auxArr.length;
+    if (need2 > ad.limits.maxStorageBufferBindingSize) throw new Error('GPU 보조 버퍼 한도를 넘었습니다.');
+    const rbar = mk(need2); dev.queue.writeBuffer(rbar, 0, auxArr);
     const mean = mk(16 * N);
     const fa = mk(need), fb = mk(need), cell = mk(4 * N), base = mk(4 * N), macro = mk(16 * N), misc = mk(4 * MISC), acc = mk(4 * 8 * MAX_OBJECTS);
     const feq = new Float32Array(N * 19);

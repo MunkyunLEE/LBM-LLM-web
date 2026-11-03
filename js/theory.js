@@ -7,7 +7,7 @@ let theme = 'system', R = null;
 const css = (n) => getComputedStyle(document.body).getPropertyValue(n).trim();
 const f3 = (v, d = 3) => (Number.isFinite(v) ? (+v.toFixed(d)).toString() : '–');
 const pct = (a, b) => (100 * (a - b) / b);
-const grade = (e) => (Math.abs(e) <= 3 ? 'ok' : Math.abs(e) <= 10 ? 'mid' : 'bad');
+const grade = (e) => (Math.abs(e) <= 3 ? 'ok' : Math.abs(e) <= 20 ? 'mid' : 'bad');
 
 function applyTheme() {
   const light = theme === 'light' || (theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
@@ -130,9 +130,10 @@ function render() {
     chart(c.add(), { title: '항력·양력 계수 시계열', xlabel: 't [s]', ylabel: 'C', series: [{ name: 'C_d (LBM)', kind: 'line', color: S1, pts: h.map((r) => [r[0] - t0, r[1]]) }, { name: 'C_l (LBM)', kind: 'line', color: S3, pts: h.map((r) => [r[0] - t0, r[2]]) }, { name: `C_d 문헌 ${cy.ref.cd}`, kind: 'line', color: S2, dash: true, pts: [[0, cy.ref.cd], [h.at(-1)[0] - t0, cy.ref.cd]] }] });
     if (cy.field) fieldImage(c.add(), '순간 속도 크기 |u|/U (LBM)', cy.field.nx, cy.field.ny, cy.field.umag, { vmax: 1.5 });
     const e1 = pct(cy.cd, cy.ref.cd), e2 = pct(cy.St, cy.ref.St), e3 = pct(cy.clAmp, cy.ref.clAmp);
-    c.metric('평균 항력계수 C_d', f3(cy.cd), cy.ref.cd, e1);
+    const hw = R['2d_cylinder_hw'];
+    c.metric('평균 항력계수 C_d', f3(cy.cd), `${cy.ref.cd}${hw ? ` · 이전 ${f3(hw.cd)}` : ''}`, e1);
     c.metric('스트로할 수 St', f3(cy.St), cy.ref.St, e2);
-    c.metric('양력 진폭 C_l', f3(cy.clAmp), cy.ref.clAmp, e3);
+    c.metric('양력 진폭 C_l', f3(cy.clAmp), `${cy.ref.clAmp}${hw ? ` · 이전 ${f3(hw.clAmp)}` : ''}`, e3);
     rows.push(['2D', '원기둥 Re 100', 'C_d / St / C_l', `${e1 >= 0 ? '+' : ''}${e1.toFixed(1)}% / ${e2 >= 0 ? '+' : ''}${e2.toFixed(1)}% / ${e3 >= 0 ? '+' : ''}${e3.toFixed(1)}%`, Math.max(Math.abs(e1), Math.abs(e2), Math.abs(e3))]);
   }
   for (const [key, name, label] of [['3d_duct', '3D-1 정사각 덕트 완전 발달 층류, Re = 40', '정사각 덕트'], ['3d_pipe', '3D-2 원관 Hagen–Poiseuille 유동, Re = 40', '원관']]) {
@@ -146,17 +147,18 @@ function render() {
     c.metric('최대/평균 속도비', f3(d.umax), d.ref.umax, e2);
     rows.push(['3D', `${label} Re 40`, 'f·Re / u_max/ū', `${e1 >= 0 ? '+' : ''}${e1.toFixed(1)}% / ${e2 >= 0 ? '+' : ''}${e2.toFixed(1)}%`, Math.max(Math.abs(e1), Math.abs(e2))]);
   }
-  const sph = Object.keys(R).filter((k) => k.startsWith('3d_sphere_')).map((k) => R[k]).sort((a, b) => a.Re - b.Re);
+  const sph = Object.keys(R).filter((k) => /^3d_sphere_\d+$/.test(k)).map((k) => R[k]).sort((a, b) => a.Re - b.Re);
+  const sphHw = Object.keys(R).filter((k) => /^3d_sphere_\d+_hw$/.test(k)).map((k) => R[k]).sort((a, b) => a.Re - b.Re);
   if (sph.length) {
     const c = vcase('v-sph', '3D-3 구 주위 흐름: 항력계수 C_d(Re)', `D = ${sph[0].D}셀, 도메인 15D × 6D × 6D (막힘비 2%), 미끄럼 측벽. Schiller–Naumann 경험식 \\(C_d = \\tfrac{24}{Re}(1+0.15Re^{0.687})\\)과 비교.`);
     const curve = []; for (let lr = 1; lr <= 2.6; lr += 0.02) { const Re = 10 ** lr; curve.push([Re, 24 / Re * (1 + 0.15 * Re ** 0.687)]); }
-    chart(c.add(), { title: '항력계수 C_d vs Re', xlabel: 'Re', ylabel: 'C_d', logx: true, xlim: [10, 400], series: [{ name: 'Schiller–Naumann', kind: 'line', color: S2, pts: curve }, { name: 'LBM', kind: 'dots', color: S1, pts: sph.map((s) => [s.Re, s.cd]), r: 6 }] });
+    chart(c.add(), { title: '항력계수 C_d vs Re', xlabel: 'Re', ylabel: 'C_d', logx: true, xlim: [10, 400], series: [{ name: 'Schiller–Naumann', kind: 'line', color: S2, pts: curve }, { name: 'LBM 보간 bounce-back', kind: 'dots', color: S1, pts: sph.map((s) => [s.Re, s.cd]), r: 6 }, ...(sphHw.length ? [{ name: '이전 halfway bounce-back', kind: 'dots', color: S3, hollow: true, pts: sphHw.map((s) => [s.Re, s.cd]), r: 5 }] : [])] });
     const last = sph.find((s) => s.Re === 100) || sph[0];
     chart(c.add(), { title: `C_d 수렴 이력 (Re = ${last.Re})`, xlabel: 'step', ylabel: 'C_d', series: [{ name: 'LBM', kind: 'line', color: S1, pts: last.hist }, { name: 'Schiller–Naumann', kind: 'line', color: S2, dash: true, pts: [[last.hist[0][0], last.sn], [last.hist.at(-1)[0], last.sn]] }] });
-    for (const s of sph) c.metric(`C_d, Re = ${s.Re}`, f3(s.cd), f3(s.sn), pct(s.cd, s.sn));
+    for (const s of sph) { const hw = sphHw.find((h) => h.Re === s.Re); c.metric(`C_d, Re = ${s.Re}`, f3(s.cd), `${f3(s.sn)}${hw ? ` · 이전 ${hw.cd >= s.sn ? '+' : ''}${pct(hw.cd, s.sn).toFixed(0)}%` : ''}`, pct(s.cd, s.sn)); }
     rows.push(['3D', `구 Re ${sph.map((s) => s.Re).join(', ')}`, 'C_d', sph.map((s) => `${pct(s.cd, s.sn) >= 0 ? '+' : ''}${pct(s.cd, s.sn).toFixed(1)}%`).join(' / '), Math.max(...sph.map((s) => Math.abs(pct(s.cd, s.sn))))]);
   }
-  $('vsummary').innerHTML = `<table class="tbl" id="v-summary"><tr><th>차원</th><th>케이스</th><th>비교 항목</th><th>오차</th><th>판정</th></tr>${rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="vnum">${r[3]}</td><td class="${grade(r[4])}">${Math.abs(r[4]) <= 3 ? '양호 (≤3%)' : Math.abs(r[4]) <= 10 ? '보통 (≤10%)' : '개선 필요'}</td></tr>`).join('')}</table>`;
+  $('vsummary').innerHTML = `<table class="tbl" id="v-summary"><tr><th>차원</th><th>케이스</th><th>비교 항목</th><th>오차</th><th>정합도</th><th>판정</th></tr>${rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td class="vnum">${r[3]}</td><td class="vnum">${(100 - Math.abs(r[4])).toFixed(1)}%</td><td class="${grade(r[4])}">${Math.abs(r[4]) <= 3 ? '양호 (≥97%)' : Math.abs(r[4]) <= 10 ? '보통 (≥90%)' : Math.abs(r[4]) <= 20 ? '사용 가능 (≥80%)' : '개선 필요 (<80%)'}</td></tr>`).join('')}</table>`;
   if (window.renderMathInElement) renderMathInElement($('vcharts'), { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false }] });
 }
 

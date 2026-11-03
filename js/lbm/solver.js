@@ -122,6 +122,62 @@ export class Solver {
       for (let i = 1; i < 9 && !sl; i++) if (this.solid[(y + EY[i]) * Nx + x + EX[i]]) sl = true;
       this.slow[k] = sl ? 1 : 0;
     }
+    this.initBouzidi();
+  }
+
+  initBouzidi() {
+    const Nx = this.Nx, Ny = this.Ny, NN = this.NN, dxmm = this.dxmm, objs = this.case.obstacles || [];
+    this.bzLinks = []; this.bzMask = new Uint16Array(NN); this.keep = new Uint8Array(NN);
+    if (this.case.bouzidi === false) return;
+    const edges = objs.map((o) => {
+      if ((o.role || 'solid') !== 'solid' || isKinematic(o)) return null;
+      const E = [];
+      for (const c of o.curves || []) {
+        if (!c.closed || c.points.length < 3) continue;
+        const P = c.points;
+        for (let q = 0; q < P.length; q++) { const a = P[q], b = P[(q + 1) % P.length]; E.push([a[0] / dxmm, a[1] / dxmm, b[0] / dxmm, b[1] / dxmm]); }
+      }
+      return E.length ? E : null;
+    });
+    for (let y = 1; y < Ny - 1; y++) for (let x = 1; x < Nx - 1; x++) {
+      const k = y * Nx + x;
+      if (this.solid[k]) continue;
+      for (let i = 1; i < 9; i++) {
+        const kt = k + EY[i] * Nx + EX[i];
+        if (!this.solid[kt] || this.flag[kt] !== SOLID) continue;
+        const o = this.owner[kt], E = o >= 0 ? edges[o] : null;
+        if (!E) continue;
+        const ox = x + 0.5, oy = y + 0.5, dx = EX[i], dy = EY[i];
+        let best = Infinity;
+        for (const [ax, ay, bx, by] of E) {
+          const ex = bx - ax, ey = by - ay, den = dx * ey - dy * ex;
+          if (Math.abs(den) < 1e-14) continue;
+          const t = ((ax - ox) * ey - (ay - oy) * ex) / den, s = ((ax - ox) * dy - (ay - oy) * dx) / den;
+          if (s >= -1e-9 && s <= 1 + 1e-9 && t > 1e-4 && t <= 1.0001 && t < best) best = t;
+        }
+        if (!(best <= 1.0001)) continue;
+        const kf = k - EY[i] * Nx - EX[i], okf = !this.solid[kf] && kf >= 0 && kf < NN;
+        this.bzLinks.push(k, i, best, okf ? kf : -1, o);
+        this.bzMask[k] |= 1 << i; this.keep[k] = 1;
+        if (okf) { this.keep[kf] = 1; this.slow[kf] = 1; }
+      }
+    }
+    this.gpost = this.bzLinks.length ? new Float32Array(9 * NN) : null;
+  }
+
+  applyBouzidi() {
+    const L = this.bzLinks, NN = this.NN, Nx = this.Nx, gp = this.gpost, fn = this.f, ofx = this.fx, ofy = this.fy, omz = this.mz, refx = this.refx, refy = this.refy;
+    for (let n = 0; n < L.length; n += 5) {
+      const k = L[n], i = L[n + 1], q = L[n + 2], kf = L[n + 3], o = L[n + 4], oi = OPP[i];
+      const gi = gp[i * NN + k];
+      let fnew;
+      if (q < 0.5) fnew = kf >= 0 ? 2 * q * gi + (1 - 2 * q) * gp[i * NN + kf] : gi;
+      else fnew = gi / (2 * q) + (1 - 1 / (2 * q)) * gp[oi * NN + k];
+      fn[oi * NN + k] = fnew;
+      const x = k % Nx, y = (k - x) / Nx, px = (gi + fnew) * EX[i], py = (gi + fnew) * EY[i];
+      ofx[o] += px; ofy[o] += py;
+      omz[o] += (x + 0.5 + 0.5 * EX[i] - refx[o]) * py - (y + 0.5 + 0.5 * EY[i] - refy[o]) * px;
+    }
   }
 
   initObjects() {
@@ -329,7 +385,7 @@ export class Solver {
         continue;
       }
       g[0] = g0; g[1] = g1; g[2] = g2; g[3] = g3; g[4] = g4; g[5] = g5; g[6] = g6; g[7] = g7; g[8] = g8;
-      const x = k % Nx, y = (k - x) / Nx;
+      const x = k % Nx, y = (k - x) / Nx, bm = this.bzMask[k];
       if (isF) {
         const fx = Fx[k], fy = Fy[k], pre = 1 - 0.5 / tau;
         for (let i = 0; i < 9; i++) {
@@ -338,12 +394,14 @@ export class Solver {
         }
       }
       if (this.inBand[k]) this.applySponge(x, y, r, ux[k], uy[k], g);
+      if (this.keep[k]) { const gp = this.gpost; for (let i = 0; i < 9; i++) gp[i * NN + k] = g[i]; }
       fn[k] = g[0];
       for (let i = 1; i < 9; i++) {
         const tx = x + EX[i], ty = y + EY[i];
         if (tx < 0 || tx >= Nx || ty < 0 || ty >= Ny) continue;
         const kt = ty * Nx + tx;
         if (solid[kt]) {
+          if (bm & (1 << i)) continue;
           fn[OPP[i] * NN + k] = g[i];
           const o = owner[kt];
           if (o >= 0) {
@@ -356,6 +414,7 @@ export class Solver {
     }
     this.f = fn;
     this.fn = f;
+    if (this.bzLinks.length) this.applyBouzidi();
   }
 
   applyBoundaries(ramp) {

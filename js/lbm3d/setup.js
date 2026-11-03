@@ -1,5 +1,6 @@
 import { worldVerts, bbox, voxelize, isClosed, decodeMesh } from './mesh.js';
 import { generate } from './shapes.js';
+import { linkDistances } from './bouzidi.js';
 
 export const EX = [0, 1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0];
 export const EY = [0, 0, 0, 1, -1, 0, 0, 1, -1, -1, 1, 0, 0, 0, 0, 1, -1, 1, -1];
@@ -87,6 +88,12 @@ export function latticeParams3(c, backend = 'cpu') {
   if (tau0 < 0.51 && !les) warnings.push(`τ0 = ${tau0.toFixed(5)} (< 0.51): LES를 켜거나 점성/격자를 조정하세요.`);
   if (tau0 < 0.5005 && les) warnings.push('고 Re 조건입니다. LES(Smagorinsky)로 안정화하지만 벽 근처 정확도는 제한적입니다.');
   if (!hasFlow) warnings.push('속도 경계가 없습니다. Δt는 기준 속도 1 m/s로 계산됩니다.');
+  const coarse = [];
+  for (const o of c.objects || []) {
+    if ((o.role || 'solid') !== 'solid' || o.mesh?.gen?.type === 'terrain') continue;
+    try { const [lo, hi] = bbox(objectVerts(o)), m = [0, 1, 2].map((d) => hi[d] - lo[d]).sort((a, b) => a - b)[1] / g.dxmm; if (m < 16) coarse.push(`${o.name || '객체'} ${m.toFixed(1)}셀`); } catch (_) {}
+  }
+  if (coarse.length) warnings.push(`물체 대표 치수가 격자에 비해 작습니다 (${coarse.slice(0, 3).join(', ')}${coarse.length > 3 ? ' 외' : ''}). 항력·박리를 정량적으로 보려면 대표 치수 20~30셀 이상을 권장합니다.`);
   return { ...g, dx, dt, nu_lat: nuLat, tau0, u_max: uMax, u_lat: uLat, Re_L: uMax * g.Lx / 1000 / nu, steps, warnings, cap };
 }
 
@@ -159,7 +166,7 @@ export function buildSetup(c, backend = 'cpu') {
       base[k] = (base[k] & ~(255 << 10)) | (id << 10);
     }
   });
-  const grid = { o: [0, 0, 0], h: 1, n: [Nx, Ny, Nz] };
+  const grid = { o: [0, 0, 0], h: 1, n: [Nx, Ny, Nz] }, curved = [];
   objects.forEach((o, oi) => {
     const vmm = objectVerts(o), v = vmm.map((x, q) => (x - O[q % 3]) / dxmm), m = meshOf(o), [lo, hi] = bbox(vmm);
     const ref = isKin(o) ? (o.kin.pivot || [0, 0, 0]) : [0, 1, 2].map((d) => (lo[d] + hi[d]) / 2);
@@ -176,6 +183,7 @@ export function buildSetup(c, backend = 'cpu') {
       return;
     }
     if (!isKin(o)) {
+      if (mode === 'solid') curved.push({ oi, v, f: m.f });
       let n = 0;
       voxelize(v, m.f, grid, mode, band, (i, j, k) => { const q = i + Nx * j + NxNy * k; if ((base[q] & 3) === 0) n++; base[q] = 1 | (oi << 2) | (base[q] & (255 << 10)); });
       info[oi].cells = n;
@@ -184,7 +192,8 @@ export function buildSetup(c, backend = 'cpu') {
     if (bodies.length >= MAX_BODIES) throw new Error(`움직이는 객체는 최대 ${MAX_BODIES}개입니다.`);
     bodies.push(makeBody(o, oi, v, m.f, mode, band, prm, c));
   });
-  return { prm, N, base, bcf, npatch: np, refs, info, bodies, nobj: objects.length, rampSteps: rampSteps(c, prm), avgStart: Math.max(0, Math.round((c.avgStart ?? +(c.duration ?? 5) * 0.5) / prm.dt)), alpha: 1 / (14 * Math.max(Nx, Ny, Nz)), cs2: (c.les?.enabled ?? true) ? (+(c.les?.cs ?? 0.15)) ** 2 : 0, emitters: emitters(c, prm, base, pemit) };
+  const bz = c.bouzidi === false ? linkDistances([], base, Nx, Ny, Nz) : linkDistances(curved, base, Nx, Ny, Nz);
+  return { prm, N, base, bcf, qoff: bz.qoff, qtab: bz.qtab, qlinks: bz.links, qhits: bz.hits, npatch: np, refs, info, bodies, nobj: objects.length, rampSteps: rampSteps(c, prm), avgStart: Math.max(0, Math.round((c.avgStart ?? +(c.duration ?? 5) * 0.5) / prm.dt)), alpha: 1 / (14 * Math.max(Nx, Ny, Nz)), cs2: (c.les?.enabled ?? true) ? (+(c.les?.cs ?? 0.15)) ** 2 : 0, emitters: emitters(c, prm, base, pemit) };
 }
 
 function makeBody(o, oi, v, f, mode, band, prm, c) {

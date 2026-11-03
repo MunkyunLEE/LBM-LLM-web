@@ -166,6 +166,20 @@ export class CPUSolver {
             const fo = A[OPP[i] * N + k], own = (cs >> 2) & 255;
             const X = x + 0.5 - 0.5 * EX[i], Y = y + 0.5 - 0.5 * EY[i], Z = z + 0.5 - 0.5 * EZ[i];
             let fi = fo;
+            const qo = this.S.qoff[k];
+            if ((cs & 3) === 1 && qo) {
+              const qc = (this.S.qtab[5 * (qo - 1) + (i >> 2)] >>> (8 * (i & 3))) & 255;
+              if (qc) {
+                const q = qc / 255;
+                if (q < 0.5) {
+                  const fx = x + EX[i], fy = y + EY[i], fz = z + EZ[i];
+                  if (fx >= 0 && fy >= 0 && fz >= 0 && fx < Nx && fy < Ny && fz < Nz) {
+                    const kf = fx + Nx * (fy + Ny * fz);
+                    if ((cell[kf] & 3) === 0) fi = 2 * q * fo + (1 - 2 * q) * A[OPP[i] * N + kf];
+                  }
+                } else fi = fo / (2 * q) + (1 - 1 / (2 * q)) * A[i * N + k];
+              }
+            }
             if ((cs & 3) === 2) {
               this.wallVel(this.bodyOf[own], X, Y, Z, uw);
               fi += 6 * W[i] * (EX[i] * uw[0] + EY[i] * uw[1] + EZ[i] * uw[2]);

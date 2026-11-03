@@ -128,6 +128,7 @@
   <table class="tbl">
     <tr><th>경계</th><th>식</th><th>의미</th></tr>
     <tr><td>벽 (halfway bounce-back)</td><td>\(f_i(\mathbf x) = f^*_{\bar i}(\mathbf x)\)</td><td>벽면이 셀 사이 중간(\(\Delta x/2\))에 놓이는 2차 정확도 점착 조건</td></tr>
+    <tr><td>곡면 벽 (Bouzidi 보간)</td><td>\(q<\tfrac12:\ f_i = 2q\,f^*_{\bar i}(\mathbf x) + (1-2q)\,f^*_{\bar i}(\mathbf x+\mathbf e_i)\)<br>\(q\ge\tfrac12:\ f_i = \dfrac{1}{2q}f^*_{\bar i}(\mathbf x) + \Big(1-\dfrac1{2q}\Big)f^*_{i}(\mathbf x)\)</td><td>\(q\)는 유체 셀 중심에서 실제 벽(메쉬·폴리곤)까지의 링크 비율. 벽이 셀 중간에 있다고 가정하지 않으므로 곡면의 계단 오차가 줄어듭니다. 고정된 닫힌 형상에 자동 적용</td></tr>
     <tr><td>움직이는 벽 (Ladd)</td><td>\(f_i = f^*_{\bar i} + 2w_i\rho_w\dfrac{\mathbf e_i\cdot\mathbf u_w}{c_s^2}\)</td><td>회전 날개·힌지 판의 표면 속도 \(\mathbf u_w = \boldsymbol\omega\times\mathbf r\)를 전달</td></tr>
     <tr><td>속도 유입 (3D)</td><td>위와 같은 식, \(\mathbf u_w = \mathbf u_{in}(z)\)</td><td>균일 또는 대기경계층 분포</td></tr>
     <tr><td>압력 (anti-bounce-back)</td><td>\(f_i = -f^*_{\bar i} + 2w_i\rho_b\Big[1 + \dfrac{(\mathbf e_i\cdot\mathbf u)^2}{2c_s^4} - \dfrac{u^2}{2c_s^2}\Big]\)</td><td>경계 밀도 \(\rho_b = 1 + p/(c_s^2\rho\,(\Delta x/\Delta t)^2)\) 고정</td></tr>
@@ -228,7 +229,8 @@
       <li><b>내부 유동(평행판, 덕트, 캐비티)</b>은 벽이 격자선과 나란해서 bounce-back 벽 위치가 정확하므로, 수 % 이내로 해석해·벤치마크와 일치합니다.</li>
       <li><b>원관</b>은 원형 벽이 계단 모양으로 복셀화되어 유효 단면이 조금 달라지므로, 마찰계수 오차가 덕트보다 큽니다.</li>
       <li><b>원기둥·구의 항력</b>은 물체 지름을 몇 셀로 표현했는지에 크게 좌우됩니다. 표면 경계층 두께는 대략 \(\delta \approx D/\sqrt{Re}\)로, Re 100에서 지름 10~20셀이면 경계층이 1~2셀밖에 안 됩니다. 이때 벽 전단과 박리 위치가 거칠게 잡혀 항력이 높게 나옵니다. 항력을 정량적으로 쓰려면 <b>물체 지름 30셀 이상</b>을 권장합니다.</li>
-      <li><b>향후 개선:</b> 곡면 벽 위치를 셀 안에서 보간하는 Bouzidi 보간 bounce-back과 물체 주변 국부 격자 세분화를 넣으면, 같은 셀 수로 곡면 물체의 항력 오차를 크게 줄일 수 있습니다.</li>
+      <li><b>보간 bounce-back(Bouzidi):</b> 곡면 벽을 셀 중간이 아니라 실제 위치에 두도록 바꿨습니다. 아래 그래프에 적용 전(halfway)과 적용 후 결과를 함께 표시했습니다.</li>
+      <li><b>남은 과제:</b> 물체 주변 국부 격자 세분화를 넣으면 같은 셀 수로 경계층 해상도를 더 높일 수 있습니다.</li>
     </ul>
   </div>
   <div id="vcharts"></div>
