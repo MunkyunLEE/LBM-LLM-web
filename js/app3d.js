@@ -281,6 +281,8 @@ function updateParams() {
     ['스텝', prm.steps.toLocaleString()], ['메모리', `${(mem / 2 ** 20).toFixed(0)} MB`],
     ['장치', be === 'gpu' ? 'GPU' : 'CPU'], ['예상', est < 90 ? `~${Math.max(1, Math.round(est))} s` : `~${(est / 60).toFixed(0)} 분`],
   ].map(([a, b]) => `<b>${a}</b><span>${b}</span>`).join('');
+  const fine = S.objects.filter((o) => o.simplified && prm.dxmm < 2 * o.simplified * 0.99).map((o) => o.name);
+  if (fine.length) prm.warnings.push(`${fine.slice(0, 3).join(', ')}: 불러올 때 단순화 기준(Δx/2)보다 지금 Δx가 작습니다. 더 정밀하게 하려면 현재 Δx로 다시 불러오세요.`);
   $('warns').innerHTML = prm.warnings.map((w) => `<div class="warn">${w}</div>`).join('');
   const off = [S.Lx, S.Ly, S.Lz].some((L, d) => Math.abs(L - [prm.Lx, prm.Ly, prm.Lz][d]) > 1e-6);
   $('gridInfo').innerHTML = `N = ${prm.Nx} × ${prm.Ny} × ${prm.Nz} (정육면체 셀 ${fmt(prm.dxmm)} mm) · 해석 도메인 ${[prm.Lx, prm.Ly, prm.Lz].map((v) => Math.round(v).toLocaleString()).join(' × ')} mm${off ? ' · <b>입력 L이 Δx의 배수가 아니라 반올림됨</b>' : ''} · 상한 ${prm.cap.toLocaleString()} 셀 (${be.toUpperCase()})`;
@@ -390,12 +392,17 @@ async function importMeshes(files) {
   for (const f of files) {
     try {
       const name = f.name.replace(/\.[^.]+$/, ''), ext = f.name.split('.').pop().toLowerCase();
-      const m = ext === 'obj' ? parseOBJ(await f.text()) : parseSTL(await f.arrayBuffer());
+      const cellmm = $('chkSimplify').checked ? g3().dxmm / 2 : 0;
+      toast(`${f.name} 읽는 중… (${(f.size / 2 ** 20).toFixed(0)} MB)`, 60000);
+      await new Promise((r) => setTimeout(r, 30));
+      const m = ext === 'obj' ? parseOBJ(await f.text(), cellmm / sc) : parseSTL(await f.arrayBuffer(), cellmm / sc);
       if (sc !== 1) for (let i = 0; i < m.v.length; i++) m.v[i] *= sc;
-      const o = addObject({ name, mesh: m, pos: [0, 0, 0] });
+      const simp = m.simplified ? m.simplified * sc : 0, raw = m.rawTris;
+      const o = addObject({ name, mesh: { v: m.v, f: m.f }, pos: [0, 0, 0], ...(simp ? { voxel: 'both', simplified: simp } : {}) });
       const [a, b] = bbox(m.v), g = g3();
       const out = a.some((v, d) => v < 0 || b[d] > [g.Lx, g.Ly, g.Lz][d]);
-      toast(`${f.name}: 삼각형 ${(m.f.length / 3).toLocaleString()}개 · ${isClosed(m) ? '닫힌 메쉬' : '열린 메쉬(쉘로 처리)'}${out ? ' · 도메인 밖으로 나가 있어 위치를 확인하세요' : ''}`, 5000);
+      const info = simp ? `삼각형 ${raw.toLocaleString()} → ${(m.f.length / 3).toLocaleString()}개로 단순화 (${fmt(simp)} mm 격자, 솔리드+쉘 복셀화)` : `삼각형 ${(m.f.length / 3).toLocaleString()}개 · ${isClosed(m) ? '닫힌 메쉬' : '열린 메쉬(쉘로 처리)'}`;
+      toast(`${f.name}: ${info}${out ? ' · 도메인 밖 부분은 해석에서 제외됩니다' : ''}`, 7000);
       o.kin.pivot = centerOf(o);
     } catch (e) { toast(`${f.name}: ${e.message}`, 5000); }
   }

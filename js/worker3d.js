@@ -89,6 +89,7 @@ async function run(c, opts) {
   post('state', { state: 'building' });
   const made = await makeSolver(c, opts.backend || 'auto');
   sol = made.s; S = made.setup;
+  if (S.qskipped) post('log', { msg: `삼각형이 ${S.qskipped.toLocaleString()}개로 많아 곡면 보간 bounce-back을 생략했습니다 (halfway 방식으로 계산).` });
   const prm = S.prm, steps = prm.steps, frames = Math.max(10, Math.min(400, +opts.frames || 120));
   const every = Math.max(1, Math.floor(steps / frames));
   sliceIdx = opts.slices.map((v, d) => Math.max(0, Math.min([prm.Nx, prm.Ny, prm.Nz][d] - 1, v)));

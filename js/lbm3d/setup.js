@@ -193,7 +193,7 @@ export function buildSetup(c, backend = 'cpu') {
     bodies.push(makeBody(o, oi, v, m.f, mode, band, prm, c));
   });
   const bz = c.bouzidi === false ? linkDistances([], base, Nx, Ny, Nz) : linkDistances(curved, base, Nx, Ny, Nz);
-  return { prm, N, base, bcf, qoff: bz.qoff, qtab: bz.qtab, qlinks: bz.links, qhits: bz.hits, npatch: np, refs, info, bodies, nobj: objects.length, rampSteps: rampSteps(c, prm), avgStart: Math.max(0, Math.round((c.avgStart ?? +(c.duration ?? 5) * 0.5) / prm.dt)), alpha: 1 / (14 * Math.max(Nx, Ny, Nz)), cs2: (c.les?.enabled ?? true) ? (+(c.les?.cs ?? 0.15)) ** 2 : 0, emitters: emitters(c, prm, base, pemit) };
+  return { prm, N, base, bcf, qoff: bz.qoff, qtab: bz.qtab, qlinks: bz.links, qhits: bz.hits, qskipped: bz.skipped, npatch: np, refs, info, bodies, nobj: objects.length, rampSteps: rampSteps(c, prm), avgStart: Math.max(0, Math.round((c.avgStart ?? +(c.duration ?? 5) * 0.5) / prm.dt)), alpha: 1 / (14 * Math.max(Nx, Ny, Nz)), cs2: (c.les?.enabled ?? true) ? (+(c.les?.cs ?? 0.15)) ** 2 : 0, emitters: emitters(c, prm, base, pemit) };
 }
 
 function makeBody(o, oi, v, f, mode, band, prm, c) {
