@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LBM Flow Lab Theory</title>
-<meta name="description" content="LBM Flow Lab의 이론식, 구현 방법, 문헌 벤치마크 대비 검증 결과">
+<title>LBM-LLM-web Theory</title>
+<meta name="description" content="LBM-LLM-web의 이론식, 구현 방법, 문헌 벤치마크 대비 검증 결과">
 <script>
 (() => {
   let pref = 'system';
@@ -19,7 +19,7 @@
 </head>
 <body class="theory">
 <header>
-  <div class="brand"><span class="logo">◩</span> LBM Flow Lab <small>Theory · 이론 · 구현 · 검증</small></div>
+  <div class="brand"><span class="logo">◩</span> LBM<span style="color:var(--accent)">·LLM</span> <small>Theory · 이론 · 구현 · 검증</small></div>
   <nav class="dimnav"><a href="index.html">2D</a><a href="3d.html">3D</a><a class="on" href="theory.html">Theory</a></nav>
   <div class="status"></div>
   <div class="hdr-actions"><button id="btnTheme" class="ghost theme-btn" title="테마: 시스템 설정">◐</button></div>
@@ -49,12 +49,13 @@
   <a href="#v-sph" class="sub">3D 구</a>
   <a href="#v-guide" class="sub">해석 수준 가이드</a>
   <a href="#v-improve" class="sub">정합도 향상 방법</a>
-  <a href="#refs">13. 참고문헌</a>
+  <a href="#llm">13. 자연어 지시 (규칙 · LLM)</a>
+  <a href="#refs">14. 참고문헌</a>
 </nav>
 
 <main class="tmain">
 <section id="overview">
-  <h1>LBM Flow Lab 이론과 구현</h1>
+  <h1>LBM-LLM-web 이론과 구현</h1>
   <p class="lead">이 시뮬레이터는 Navier–Stokes 방정식을 직접 풀지 않고, 유체를 <b>격자 위를 움직이며 충돌하는 입자 분포</b>로 다루는 격자 볼츠만법(Lattice Boltzmann Method, LBM)을 씁니다. 이 페이지는 사용한 식, 그 식을 코드로 옮긴 방법, 그리고 문헌의 해석해·벤치마크와 비교한 결과를 정리합니다.</p>
   <div class="callout">
     <b>계산 흐름 (매 시간 스텝)</b>
@@ -265,8 +266,35 @@
   <p class="note">권장 순서는 ① 화면 해상도 경고가 사라질 때까지 Δx를 줄이고, ② 도메인 여유를 확보한 뒤, ③ 결과를 시간 평균으로 보는 것입니다. 이 세 가지만으로도 대부분의 설계 비교에서 80% 이상의 정합도를 기대할 수 있습니다.</p>
 </section>
 
+<section id="llm">
+  <h2>13. 자연어 지시 (규칙 · LLM)</h2>
+  <p>오른쪽 패널의 문장 입력은 해석 조건을 직접 만들지 않고, <b>ops</b>라는 작은 명령 목록으로 바꾼 뒤 기존 화면 설정에 적용합니다. 그래서 문장으로 바꾼 조건과 손으로 바꾼 조건은 항상 같은 결과를 냅니다.</p>
+  <pre class="eq">문장 → [규칙 파서] → ops JSON → 검증 · 적용 → 왼쪽 설정 갱신
+          └ 이해 못한 부분 → [LLM] → ops JSON ┘   (실패 시 오류를 붙여 1회 재요청)</pre>
+  <table class="tbl">
+    <tr><th>방식</th><th>동작</th></tr>
+    <tr><td>규칙 우선 (기본)</td><td>규칙이 모두 이해한 문장은 바로 적용하고, 남은 말이 있으면 LLM에 보냅니다. LLM이 설정되지 않았으면 규칙 결과만 씁니다.</td></tr>
+    <tr><td>LLM 우선</td><td>항상 LLM에 먼저 묻고, 호출이 실패하면 규칙 결과를 씁니다.</td></tr>
+    <tr><td>LLM만 / 규칙만</td><td>한쪽만 사용합니다.</td></tr>
+  </table>
+  <h3>규칙 파서가 이해하는 표현</h3>
+  <table class="tbl">
+    <tr><th>분류</th><th>예</th></tr>
+    <tr><td>단위</td><td>m/s, km/h, 시속·초속, Pa, kPa, bar, 대기압, mm, cm, m, 초, 분, rpm, °</td></tr>
+    <tr><td>면 · 변</td><td>x 최소/최대, +x/−x, 입구·출구, 바닥·천장, 좌우·측면, 위아래, 왼쪽·오른쪽, 모든 면, 나머지 면</td></tr>
+    <tr><td>경계</td><td>유입(속도), 압력·대기압, 자유 유출, 벽, 미끄럼벽·대칭, 주기, 면 구간(원형·사각)</td></tr>
+    <tr><td>바람 방향</td><td>“x 방향으로 5 m/s” → x 최소 면 유입, “−y 방향” → y 최대 면 유입</td></tr>
+    <tr><td>대기경계층</td><td>멱법칙/로그법칙, 지형(도시 α 0.30 · z₀ 1 m / 교외 0.22 · 0.3 m / 개활지 0.14 · 0.03 m / 해상 0.11 · 2 mm), 기준 높이</td></tr>
+    <tr><td>도메인 · 격자</td><td>“도메인 8 x 4 x 3 m”, “격자 50mm”, “분할 400”, “격자 더 촘촘하게”</td></tr>
+    <tr><td>객체</td><td>구·상자·로터·판 추가, 번호·이름·선택 객체 지정, 이동·회전·배율·삭제·복제, 바닥에 놓기, 자유 회전·힌지·rpm 구동</td></tr>
+    <tr><td>해석 · 결과</td><td>해석 시간·램프·프레임·u<sub>lat</sub>·흡수층, 실행·중단, 필드·단면·벡터·유선·입자, Q 등치면, VTK, 하중·프로브 그래프, 예제 불러오기, 되돌리기</td></tr>
+  </table>
+  <h3>LLM 연결 (A안: 브라우저 직접 호출)</h3>
+  <p>서버 없이 브라우저가 OpenAI 호환 <code>/chat/completions</code> 또는 Anthropic <code>/v1/messages</code>를 직접 부릅니다. 엔드포인트·모델·키는 비어 있으며 사용자가 자기 것을 넣습니다. 키는 기본적으로 탭을 닫으면 지워지고, 원할 때만 브라우저에 기억합니다. LLM에는 현재 조건 요약(JSON)과 입력 문장만 보내며 형상 파일·결과 데이터는 보내지 않습니다. 사내 게이트웨이가 브라우저 호출(CORS)을 막는 등 문제가 생기면 같은 ops 계약을 유지한 채 Python 서버가 호출을 대신하는 B안으로 전환합니다(<code>docs/LLM.md</code>).</p>
+</section>
+
 <section id="refs">
-  <h2>13. 참고문헌</h2>
+  <h2>14. 참고문헌</h2>
   <ol class="refs">
     <li>T. Krüger et al., <i>The Lattice Boltzmann Method: Principles and Practice</i>, Springer, 2017.</li>
     <li>J. Latt, B. Chopard, "Lattice Boltzmann method with regularized pre-collision distribution functions," <i>Math. Comput. Simul.</i> 72, 2006.</li>

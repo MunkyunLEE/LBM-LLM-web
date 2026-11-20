@@ -124,7 +124,7 @@ export function isosurface(V, Nx, Ny, Nz, level, F) {
 
 export function buildVTK(F, prm, rhoPhys, origin) {
   const { Nx, Ny, Nz, dx, dt } = prm, N = Nx * Ny * Nz, vs = dx / dt, ps = rhoPhys * vs * vs / 3;
-  const head = `# vtk DataFile Version 3.0\nLBM Flow Lab 3D\nBINARY\nDATASET STRUCTURED_POINTS\nDIMENSIONS ${Nx} ${Ny} ${Nz}\nORIGIN ${origin[0] / 1000 + dx / 2} ${origin[1] / 1000 + dx / 2} ${origin[2] / 1000 + dx / 2}\nSPACING ${dx} ${dx} ${dx}\nPOINT_DATA ${N}\nVECTORS velocity float\n`;
+  const head = `# vtk DataFile Version 3.0\nLBM-LLM-web 3D\nBINARY\nDATASET STRUCTURED_POINTS\nDIMENSIONS ${Nx} ${Ny} ${Nz}\nORIGIN ${origin[0] / 1000 + dx / 2} ${origin[1] / 1000 + dx / 2} ${origin[2] / 1000 + dx / 2}\nSPACING ${dx} ${dx} ${dx}\nPOINT_DATA ${N}\nVECTORS velocity float\n`;
   const h2 = '\nSCALARS pressure float 1\nLOOKUP_TABLE default\n', h3 = '\nSCALARS solid float 1\nLOOKUP_TABLE default\n';
   const enc = new TextEncoder(), a = enc.encode(head), b = enc.encode(h2), c = enc.encode(h3);
   const buf = new ArrayBuffer(a.length + 12 * N + b.length + 4 * N + c.length + 4 * N + 1), u8 = new Uint8Array(buf), dv = new DataView(buf);

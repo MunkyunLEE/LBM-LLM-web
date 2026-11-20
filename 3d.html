@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LBM Flow Lab 3D</title>
-<meta name="description" content="브라우저에서 바로 실행되는 3D 격자 볼츠만(LBM) 유동·FSI 시뮬레이터">
+<title>LBM-LLM-web · 3D</title>
+<meta name="description" content="브라우저에서 바로 실행되는 3D 격자 볼츠만(LBM) 유동·FSI 시뮬레이터 + 자연어(LLM) 조건 지시">
 <script>
 (() => {
   let pref = 'system';
@@ -15,29 +15,22 @@
 </script>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/style3d.css">
+<link rel="stylesheet" href="css/simweb.css">
 </head>
 <body>
-<header>
-  <div class="brand"><span class="logo">◩</span> LBM Flow Lab <small>3D · D3Q19 · <span id="devName">계산 장치 확인 중…</span></small></div>
-  <nav class="dimnav"><a href="index.html">2D</a><a class="on" href="3d.html">3D</a></nav>
-  <div class="status">
-    <span id="stateBadge" class="badge idle">대기</span>
-    <div class="progress"><div id="progBar"></div></div>
-    <span id="progText" class="mono">–</span>
-  </div>
-  <div class="hdr-actions">
-    <select id="selExample" class="hdr-select" title="예제 케이스 불러오기"><option value="">예제 케이스…</option></select>
-    <button id="btnSaveCase" class="ghost" title="현재 설정을 JSON으로 저장">케이스 저장</button>
-    <label class="ghost btnlike" title="저장한 JSON 불러오기">불러오기<input id="fileCase" type="file" accept=".json" hidden></label>
-    <a class="ghost btnlike theory-btn" href="theory.html" title="이론식과 구현, 검증 결과">Theory</a>
-    <button id="btnTheme" class="ghost theme-btn" title="테마: 시스템 설정">◐</button>
-  </div>
-</header>
-
-<main>
-<aside id="side">
+<div id="app">
+<aside id="left">
+  <header><h1>LBM<span>·LLM</span></h1><div id="tools">3D · D3Q19<br><span id="devName">계산 장치 확인 중…</span></div></header>
   <section>
-    <h2><span class="num">1</span>도메인 · 격자</h2>
+    <h2>케이스</h2>
+    <div class="case-row">
+      <select id="selExample" title="예제 케이스 불러오기"><option value="">예제 선택…</option></select>
+      <button id="btnSaveCase" class="ghost" title="현재 설정을 JSON으로 저장">저장</button>
+      <label class="ghost btnlike" title="저장한 JSON 불러오기">열기<input id="fileCase" type="file" accept=".json" hidden></label>
+    </div>
+  </section>
+  <section>
+    <h2>도메인 · 격자 <small>mm</small></h2>
     <div class="grid3">
       <label>L<sub>x</sub> <em>mm</em><input id="inLx" type="number" step="100" min="10" value="4000"></label>
       <label>L<sub>y</sub> <em>mm</em><input id="inLy" type="number" step="100" min="10" value="2400"></label>
@@ -60,9 +53,8 @@
       <label class="check"><input id="chkClip" type="checkbox" checked> 도메인 밖 숨김</label>
     </div>
   </section>
-
   <section>
-    <h2><span class="num">2</span>유체</h2>
+    <h2>유체</h2>
     <div class="grid3">
       <label>종류<select id="inFluid"><option value="air">공기 20°C</option><option value="water">물 20°C</option><option value="custom">직접 입력</option></select></label>
       <label>ν <em>m²/s</em><input id="inNu" type="number" step="any" value="1.5e-5"></label>
@@ -70,9 +62,8 @@
     </div>
     <label class="check"><input id="inLes" type="checkbox" checked> LES (Smagorinsky)</label>
   </section>
-
   <section>
-    <h2><span class="num">3</span>객체 <span class="sub">STL · OBJ</span></h2>
+    <h2>객체 <small>STL · OBJ</small></h2>
     <div class="row">
       <label class="btnlike primary-outline">STL/OBJ 불러오기<input id="fileMesh" type="file" accept=".stl,.obj" multiple hidden></label>
       <select id="inUnit" class="unitsel" title="파일 단위"><option value="mm">mm</option><option value="cm">cm</option><option value="m">m</option><option value="inch">inch</option></select>
@@ -162,9 +153,8 @@
     <p class="hint">클릭으로 선택 · 드래그로 수평 이동 · Shift+드래그로 수직 이동 · 빈 곳 드래그로 시점 회전. 스냅은 객체 경계상자의 꼭짓점 8개와 면 중심 6개만 격자점에 붙습니다.</p>
     <p class="hint">불러온 파일과 계산은 모두 이 브라우저 안에서만 처리되며, 어디에도 전송되지 않습니다.</p>
   </section>
-
   <section>
-    <h2><span class="num">4</span>경계조건</h2>
+    <h2>경계조건</h2>
     <div id="faceRows"></div>
     <h3>면 위 구간(patch) <span class="sub" id="patchCount"></span></h3>
     <div class="row">
@@ -193,9 +183,8 @@
     </div>
     <p class="hint">면 좌표 (u, v): x면은 (y, z), y면은 (x, z), z면은 (x, y). 유입 속도는 면에 수직이며 도메인 안쪽이 +입니다.</p>
   </section>
-
   <section>
-    <h2><span class="num">5</span>해석</h2>
+    <h2>해석 설정</h2>
     <div class="grid3">
       <label>해석 시간 <em>s</em><input id="inDur" type="number" step="0.5" min="0.1" value="8"></label>
       <label>속도 램프 <em>s</em><input id="inRamp" type="number" step="0.5" min="0" value="1"></label>
@@ -212,84 +201,19 @@
     </div>
     <div id="params" class="params"></div>
     <div id="warns"></div>
+  </section>
+  <section class="run">
+    <div class="stat"><span id="stateBadge" class="badge idle">대기</span><div class="progress"><div id="progBar"></div></div></div>
+    <span id="progText" class="mono">–</span>
+    <button id="btnRun" class="primary wide run-main">▶ 해석 실행</button>
     <div class="row run-row">
       <button id="btnVoxel" class="ghost">복셀 미리보기</button>
       <button id="btnPause" class="ghost" disabled>일시정지</button>
-      <button id="btnStop" class="danger-outline" disabled>■ Stop</button>
+      <button id="btnStop" class="danger-outline" disabled>■ 중단</button>
     </div>
-    <button id="btnRun" class="primary wide run-main">▶ Run</button>
-  </section>
-
-  <section>
-    <h2><span class="num">6</span>결과 표시</h2>
-    <div class="grid2">
-      <label>표시 필드<select id="inField"><option value="umag">속도 크기 |u|</option><option value="ux">u<sub>x</sub></option><option value="uy">u<sub>y</sub></option><option value="uz">u<sub>z</sub></option><option value="pressure">압력 p</option><option value="vort">단면 수직 와도 ω<sub>n</sub></option></select></label>
-      <label>색 범위<select id="inRange"><option value="frame">프레임마다</option><option value="run">전체 고정</option></select></label>
-    </div>
-    <div class="slicerow"><label class="check"><input id="slX" type="checkbox"> X 단면</label><input id="slXv" type="range" min="0" max="1000" value="350"><span id="slXt" class="mono"></span></div>
-    <div class="slicerow"><label class="check"><input id="slY" type="checkbox" checked> Y 단면</label><input id="slYv" type="range" min="0" max="1000" value="500"><span id="slYt" class="mono"></span></div>
-    <div class="slicerow"><label class="check"><input id="slZ" type="checkbox"> Z 단면</label><input id="slZv" type="range" min="0" max="1000" value="500"><span id="slZt" class="mono"></span></div>
-    <div class="slicerow densrow"><span class="dl">유선 밀도</span><input id="inSdens" type="range" min="1" max="10" step="1" value="4"><span id="inSdensT" class="mono"></span></div>
-    <div class="grid3">
-      <label>벡터 간격<input id="inStride" type="number" min="1" max="32" value="3"></label>
-      <label>유선 단면<select id="inStreamPlane"><option value="Y">Y</option><option value="Z">Z</option><option value="X">X</option></select></label>
-      <label>입자 크기<input id="inPsize" type="number" min="1" max="8" value="2"></label>
-    </div>
-    <div class="row">
-      <label class="check"><input id="chkMean" type="checkbox"> 시간 평균장 표시</label>
-      <label class="check"><input id="chkSolidHide" type="checkbox"> 결과에서 객체 반투명</label>
-    </div>
-    <h3>3D 분석 <span class="sub">현재 계산 상태 기준</span></h3>
-    <div class="grid3">
-      <label>Q 수준 <em>%</em><input id="inQf" type="number" min="0.5" max="100" step="0.5" value="8"></label>
-      <label class="check q3mean"><input id="chkAnMean" type="checkbox"> 평균장</label>
-    </div>
-    <div class="row">
-      <button id="btnS3" class="ghost small" disabled>3D 유선</button>
-      <button id="btnQ" class="ghost small" disabled>Q 와류 등치면</button>
-      <button id="btnVtk" class="ghost small" disabled>VTK 저장</button>
-      <button id="btnAnClear" class="ghost small">지우기</button>
-    </div>
-    <p class="readout" id="anInfo"></p>
-    <div class="grid3">
-      <label>GIF FPS<input id="inFps" type="number" min="1" max="50" value="15"></label>
-      <label>GIF 폭 <em>px</em><input id="inGifW" type="number" min="240" max="1280" step="40" value="640"></label>
-      <span></span>
-    </div>
-    <button id="btnGif" class="primary wide" disabled>GIF 만들기 (현재 시점)</button>
-    <div id="gifBox" class="gifbox hidden"><img id="gifImg" alt="GIF 미리보기"><a id="gifLink" download="lbm3d.gif">GIF 다운로드</a></div>
-    <p class="hint">단면 위치를 바꾸면 계산 중에는 다음 프레임부터, 계산 후에는 마지막 상태로 다시 잘라 보여줍니다.</p>
-  </section>
-
-  <section>
-    <h2><span class="num">7</span>프로브 <span class="sub">점 시계열</span></h2>
-    <div class="grid3">
-      <label>x <em>mm</em><input id="prX" type="number" step="10"></label>
-      <label>y <em>mm</em><input id="prY" type="number" step="10"></label>
-      <label>z <em>mm</em><input id="prZ" type="number" step="10"></label>
-    </div>
-    <div class="row">
-      <button id="btnPrAdd" class="ghost small">+ 좌표로 추가</button>
-      <button id="btnPrPick" class="ghost small toggle" title="결과 화면의 단면을 클릭해 프로브 추가">단면 클릭으로 추가</button>
-      <button id="btnPrClear" class="ghost small">모두 삭제</button>
-    </div>
-    <ul id="probeList" class="list"></ul>
-    <label>항목<select id="prQty"><option value="umag">|u| [m/s]</option><option value="ux">uₓ [m/s]</option><option value="uy">u_y [m/s]</option><option value="uz">u_z [m/s]</option><option value="p">p [Pa]</option></select></label>
-    <canvas id="probeChart" width="336" height="140"></canvas>
-  </section>
-
-  <section>
-    <h2><span class="num">8</span>물체 하중</h2>
-    <div class="tablewrap"><table class="loads" id="loadTable"></table></div>
-    <div class="grid2">
-      <label>객체<select id="loadObj"></select></label>
-      <label>항목<select id="loadQty"><option value="fx">F<sub>x</sub> [N]</option><option value="fy">F<sub>y</sub> [N]</option><option value="fz">F<sub>z</sub> [N]</option><option value="ma">축 모멘트 [N·m]</option><option value="theta">각도 [°]</option><option value="rpm">회전수 [rpm]</option></select></label>
-    </div>
-    <canvas id="loadChart" width="336" height="140"></canvas>
-    <p class="hint">모멘트 기준점은 움직이는 객체는 회전축 위치, 고정 객체는 경계상자 중심입니다. 평균은 해석 후반 50% 구간입니다.</p>
   </section>
 </aside>
-
+<main>
 <section id="stage">
   <div id="view3d"></div>
   <div class="toolbar">
@@ -324,7 +248,89 @@
   <div id="cursorInfo" class="cursor mono"></div>
   <div id="toast" class="toast hidden"></div>
 </section>
+<div id="bottom">
+  <div class="bbar" id="bottomBar"><b>결과 · 그래프</b><span id="bottomInfo"></span><span class="caret" id="bottomCaret">▾ 접기</span></div>
+  <div class="cards">
+    <div class="card">
+      <h2>결과 표시</h2>
+    <div class="grid2">
+      <label>표시 필드<select id="inField"><option value="umag">속도 크기 |u|</option><option value="ux">u<sub>x</sub></option><option value="uy">u<sub>y</sub></option><option value="uz">u<sub>z</sub></option><option value="pressure">압력 p</option><option value="vort">단면 수직 와도 ω<sub>n</sub></option></select></label>
+      <label>색 범위<select id="inRange"><option value="frame">프레임마다</option><option value="run">전체 고정</option></select></label>
+    </div>
+    <div class="slicerow"><label class="check"><input id="slX" type="checkbox"> X 단면</label><input id="slXv" type="range" min="0" max="1000" value="350"><span id="slXt" class="mono"></span></div>
+    <div class="slicerow"><label class="check"><input id="slY" type="checkbox" checked> Y 단면</label><input id="slYv" type="range" min="0" max="1000" value="500"><span id="slYt" class="mono"></span></div>
+    <div class="slicerow"><label class="check"><input id="slZ" type="checkbox"> Z 단면</label><input id="slZv" type="range" min="0" max="1000" value="500"><span id="slZt" class="mono"></span></div>
+    <div class="slicerow densrow"><span class="dl">유선 밀도</span><input id="inSdens" type="range" min="1" max="10" step="1" value="4"><span id="inSdensT" class="mono"></span></div>
+    <div class="grid3">
+      <label>벡터 간격<input id="inStride" type="number" min="1" max="32" value="3"></label>
+      <label>유선 단면<select id="inStreamPlane"><option value="Y">Y</option><option value="Z">Z</option><option value="X">X</option></select></label>
+      <label>입자 크기<input id="inPsize" type="number" min="1" max="8" value="2"></label>
+    </div>
+    <div class="row">
+      <label class="check"><input id="chkMean" type="checkbox"> 시간 평균장 표시</label>
+      <label class="check"><input id="chkSolidHide" type="checkbox"> 결과에서 객체 반투명</label>
+    </div>
+    </div>
+    <div class="card">
+      <h2>3D 분석 · GIF <small>현재 계산 상태 기준</small></h2>
+        <div class="grid3">
+      <label>Q 수준 <em>%</em><input id="inQf" type="number" min="0.5" max="100" step="0.5" value="8"></label>
+      <label class="check q3mean"><input id="chkAnMean" type="checkbox"> 평균장</label>
+    </div>
+    <div class="row">
+      <button id="btnS3" class="ghost small" disabled>3D 유선</button>
+      <button id="btnQ" class="ghost small" disabled>Q 와류 등치면</button>
+      <button id="btnVtk" class="ghost small" disabled>VTK 저장</button>
+      <button id="btnAnClear" class="ghost small">지우기</button>
+    </div>
+    <p class="readout" id="anInfo"></p>
+    <div class="grid3">
+      <label>GIF FPS<input id="inFps" type="number" min="1" max="50" value="15"></label>
+      <label>GIF 폭 <em>px</em><input id="inGifW" type="number" min="240" max="1280" step="40" value="640"></label>
+      <span></span>
+    </div>
+    <button id="btnGif" class="primary wide" disabled>GIF 만들기 (현재 시점)</button>
+    <div id="gifBox" class="gifbox hidden"><img id="gifImg" alt="GIF 미리보기"><a id="gifLink" download="lbm3d.gif">GIF 다운로드</a></div>
+    <p class="hint">단면 위치를 바꾸면 계산 중에는 다음 프레임부터, 계산 후에는 마지막 상태로 다시 잘라 보여줍니다.</p>
+    </div>
+    <div class="card">
+      <h2>프로브 <small>점 시계열</small></h2>
+    <div class="grid3">
+      <label>x <em>mm</em><input id="prX" type="number" step="10"></label>
+      <label>y <em>mm</em><input id="prY" type="number" step="10"></label>
+      <label>z <em>mm</em><input id="prZ" type="number" step="10"></label>
+    </div>
+    <div class="row">
+      <button id="btnPrAdd" class="ghost small">+ 좌표로 추가</button>
+      <button id="btnPrPick" class="ghost small toggle" title="결과 화면의 단면을 클릭해 프로브 추가">단면 클릭으로 추가</button>
+      <button id="btnPrClear" class="ghost small">모두 삭제</button>
+    </div>
+    <ul id="probeList" class="list"></ul>
+    <label>항목<select id="prQty"><option value="umag">|u| [m/s]</option><option value="ux">uₓ [m/s]</option><option value="uy">u_y [m/s]</option><option value="uz">u_z [m/s]</option><option value="p">p [Pa]</option></select></label>
+    <canvas id="probeChart" width="336" height="140"></canvas>
+    </div>
+    <div class="card">
+      <h2>물체 하중</h2>
+    <div class="tablewrap"><table class="loads" id="loadTable"></table></div>
+    <div class="grid2">
+      <label>객체<select id="loadObj"></select></label>
+      <label>항목<select id="loadQty"><option value="fx">F<sub>x</sub> [N]</option><option value="fy">F<sub>y</sub> [N]</option><option value="fz">F<sub>z</sub> [N]</option><option value="ma">축 모멘트 [N·m]</option><option value="theta">각도 [°]</option><option value="rpm">회전수 [rpm]</option></select></label>
+    </div>
+    <canvas id="loadChart" width="336" height="140"></canvas>
+    <p class="hint">모멘트 기준점은 움직이는 객체는 회전축 위치, 고정 객체는 경계상자 중심입니다. 평균은 해석 후반 50% 구간입니다.</p>
+    </div>
+  </div>
+</div>
 </main>
+<aside id="right">
+  <div class="topbar">
+    <nav class="dimnav"><a href="index.html">2D</a><a class="on" href="3d.html">3D</a></nav>
+    <a class="btn" href="theory.html" target="_blank" rel="noopener">Theory · 원리와 검증</a>
+    <button id="btnTheme" class="ghost theme-btn" title="테마: 시스템 설정">◐</button>
+  </div>
+  <div id="agentPanel"></div>
+</aside>
+</div>
 <script type="module" src="js/app3d.js"></script>
 </body>
 </html>

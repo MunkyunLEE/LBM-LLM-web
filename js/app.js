@@ -1073,9 +1073,29 @@ function init() {
   };
 
   window.addEventListener('resize', () => { resize(); drawLoadChart(); });
+  if (window.ResizeObserver) new ResizeObserver(() => resize()).observe($('stage'));
   renderEdgeRows(); renderObjList(); renderPatchList(); renderLoadSelect(); renderLoads();
   api('/api/colormaps').then((m) => { luts = m; });
   api('/api/status').then((st) => { status = st; updateStatusUI(); if (locked()) { setView('result'); startPolling(); } });
   resize(); updateParams(); drawLoadChart();
 }
 init();
+window.__lbm2d = {
+  S, grid, select, changed, syncInputs, applyPreset, setView, renderEdgeRows, renderObjEditor, renderPatchList, renderPatchEditor, renderObjList, scheduleParams, draw, drawLoadChart, toWorld, toLocal, pivotWorld, ensureObj, objWorld, edgeLen, fetchMask, run, toast,
+  EDGE_NORMAL, PRESETS,
+  locked: () => locked(),
+  state: () => status.state,
+  hasRun: () => status.state !== 'idle' && !!runCase,
+  nextId: () => uid++,
+  selObj: () => selObj(),
+  setUid: (v) => { uid = v; },
+  stop: () => api('/api/stop', {}).catch(() => {}),
+  addSamples: () => $('btnSamples').click(),
+  loadExample: (file) => { const s = $('selExample'); s.value = file; s.dispatchEvent(new Event('change')); },
+  examples: () => [...$('selExample').options].filter((o) => o.value).map((o) => ({ title: o.text, file: o.value })),
+  paramsText: () => { const g = grid(); return `격자 ${g.Nx}×${g.Ny} (${(g.Nx * g.Ny).toLocaleString()} 셀, Δx ${fmt(g.dx, 2)} mm) · ${$('params').innerText.replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ')}`; },
+  fieldSet: (f) => { S.field = f; $('inField').value = f; if (status.state !== 'idle') fetchFrame().catch(() => {}); },
+  overlay: (key, id, val) => { S[key] = !!val; $(id).checked = !!val; if (S[key] && S.view === 'result' && status.state !== 'idle') fetchOverlays().then(draw).catch(() => {}); else draw(); },
+  mask: (on) => { S.showMask = !!on; $('chkMask').checked = !!on; if (on) fetchMask(); else draw(); },
+  gridLines: (on) => { S.showGrid = !!on; $('chkGrid').checked = !!on; draw(); },
+};

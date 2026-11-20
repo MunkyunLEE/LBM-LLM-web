@@ -48,3 +48,4 @@ body.theory { overflow: auto; }
 @media (max-width: 860px) { .toc { display: none; } .grid2c { grid-template-columns: 1fr; } .tlayout { padding: 0 16px; } }
 main.tmain { display: block; height: auto; }
 html { height: auto; } body.theory { height: auto; }
+pre.eq{background:var(--panel-2,#1b222c);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}

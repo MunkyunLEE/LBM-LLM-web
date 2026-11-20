@@ -1,4 +1,4 @@
-# LBM Flow Lab — 3D 및 간이 FSI 계획
+# LBM-LLM-web — 3D 및 간이 FSI 계획
 
 작성: 2026-10-29 · 기준: 2D v0.3 (`main`)
 

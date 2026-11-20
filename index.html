@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LBM Flow Lab</title>
-<meta name="description" content="브라우저에서 바로 실행되는 2D 격자 볼츠만(LBM) 유동 시뮬레이터">
+<title>LBM-LLM-web · 2D</title>
+<meta name="description" content="브라우저에서 바로 실행되는 2D 격자 볼츠만(LBM) 유동 시뮬레이터 + 자연어(LLM) 조건 지시">
 <script>
 (() => {
   let pref = 'system';
@@ -14,30 +14,22 @@
 })();
 </script>
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/simweb.css">
 </head>
 <body>
-<header>
-  <div class="brand"><span class="logo">◧</span> LBM Flow Lab <small>2D · D2Q9 · 브라우저 계산</small></div>
-  <nav class="dimnav"><a class="on" href="index.html">2D</a><a href="3d.html">3D</a></nav>
-  <div class="status">
-    <span id="stateBadge" class="badge idle">대기</span>
-    <div class="progress"><div id="progBar"></div></div>
-    <span id="progText" class="mono">–</span>
-  </div>
-  <div class="hdr-actions">
-    <select id="selExample" class="hdr-select" title="예제 케이스 불러오기"><option value="">예제 케이스…</option></select>
-    <button id="btnSaveCase" class="ghost" title="현재 설정을 JSON으로 저장">케이스 저장</button>
-    <label class="ghost btnlike" title="저장한 JSON 불러오기">불러오기<input id="fileCase" type="file" accept=".json" hidden></label>
-    <a class="ghost btnlike theory-btn" href="theory.html" title="이론식과 구현, 검증 결과">Theory</a>
-    <button id="btnTheme" class="ghost theme-btn" title="테마: 시스템 설정">◐</button>
-  </div>
-</header>
-
-<main>
-<aside id="side">
-
+<div id="app">
+<aside id="left">
+  <header><h1>LBM<span>·LLM</span></h1><div id="tools">2D · D2Q9<br>브라우저 계산</div></header>
   <section>
-    <h2><span class="num">1</span>격자판</h2>
+    <h2>케이스</h2>
+    <div class="case-row">
+      <select id="selExample" title="예제 케이스 불러오기"><option value="">예제 선택…</option></select>
+      <button id="btnSaveCase" class="ghost" title="현재 설정을 JSON으로 저장">저장</button>
+      <label class="ghost btnlike" title="저장한 JSON 불러오기">열기<input id="fileCase" type="file" accept=".json" hidden></label>
+    </div>
+  </section>
+  <section>
+    <h2>격자판 <small>mm</small></h2>
     <div class="grid3">
       <label>가로 L<sub>x</sub> <em>mm</em><input id="inLx" type="number" min="10" step="100" value="10000"></label>
       <label>세로 L<sub>y</sub> <em>mm</em><input id="inLy" type="number" min="10" step="100" value="10000"></label>
@@ -51,9 +43,8 @@
     </div>
     <p class="hint">DXF는 원래 좌표를 유지합니다. 격자판보다 큰 도면은 원점을 옮겨 필요한 부분만 판 안에 넣으면 그 부분만 해석됩니다.</p>
   </section>
-
   <section>
-    <h2><span class="num">2</span>유체</h2>
+    <h2>유체</h2>
     <label>프리셋
       <select id="inPreset">
         <option value="demo">데모 · 층류 와열 (ν = 5×10⁻³)</option>
@@ -71,9 +62,8 @@
       <label>C<sub>s</sub><input id="inCs" type="number" step="0.01" min="0.05" max="0.4" value="0.2"></label>
     </div>
   </section>
-
   <section>
-    <h2><span class="num">3</span>객체 <span class="sub">DXF · mm</span></h2>
+    <h2>객체 <small>DXF · mm</small></h2>
     <div class="row">
       <label class="btnlike primary-outline">DXF 불러오기<input id="fileDxf" type="file" accept=".dxf" multiple hidden></label>
       <button id="btnSamples" class="ghost">샘플 5종</button>
@@ -140,9 +130,8 @@
     <p class="hint">캔버스에서 클릭해 선택 · 드래그로 이동 · 위쪽 ◯ 핸들로 회전 · Delete 키로 삭제</p>
     <p class="hint">불러온 파일과 계산은 모두 이 브라우저 안에서만 처리되며, 어디에도 전송되지 않습니다.</p>
   </section>
-
   <section>
-    <h2><span class="num">4</span>경계조건</h2>
+    <h2>경계조건</h2>
     <div id="edgeRows"></div>
     <h3>구간(patch) <span class="sub" id="patchCount"></span></h3>
     <ul id="patchList" class="list"></ul>
@@ -157,9 +146,8 @@
     </div>
     <p class="hint">격자판 바깥 색 띠를 드래그하면 그 구간에 새 경계조건이 생깁니다. 변 위 좌표는 왼쪽/오른쪽 변은 y, 아래/위 변은 x 기준입니다.</p>
   </section>
-
   <section>
-    <h2><span class="num">5</span>해석</h2>
+    <h2>해석 설정</h2>
     <div class="grid3">
       <label>해석 시간 <em>s</em><input id="inDur" type="number" step="1" min="0.1" value="12"></label>
       <label>속도 램프 <em>s</em><input id="inRamp" type="number" step="0.5" min="0" value="2"></label>
@@ -172,46 +160,19 @@
     </div>
     <div id="params" class="params"></div>
     <div id="warns"></div>
+  </section>
+  <section class="run">
+    <div class="stat"><span id="stateBadge" class="badge idle">대기</span><div class="progress"><div id="progBar"></div></div></div>
+    <span id="progText" class="mono">–</span>
+    <button id="btnRun" class="primary wide run-main">▶ 해석 실행</button>
     <div class="row run-row">
       <button id="btnMask" class="ghost">복셀 미리보기</button>
       <button id="btnPause" class="ghost" disabled>일시정지</button>
-      <button id="btnStop" class="danger-outline" disabled>■ Stop</button>
+      <button id="btnStop" class="danger-outline" disabled>■ 중단</button>
     </div>
-    <button id="btnRun" class="primary wide run-main">▶ Run</button>
-  </section>
-
-  <section>
-    <h2><span class="num">6</span>결과 · GIF</h2>
-    <label>표시 필드<select id="inField"><option value="umag">속도 크기 |u|</option><option value="vort">와도 ω</option><option value="pressure">압력 p</option></select></label>
-    <div class="row">
-      <button id="btnEmit" class="ghost toggle" title="결과 화면을 클릭해 입자 방출점 추가">입자 방출점 추가</button>
-      <button id="btnEmitClear" class="ghost">방출점 초기화</button>
-    </div>
-    <div class="grid3">
-      <label>FPS<input id="inFps" type="number" min="1" max="50" value="15"></label>
-      <label>배율<select id="inGifScale"><option value="1">×1</option><option value="2">×2</option></select></label>
-      <span></span>
-    </div>
-    <div class="row">
-      <label class="check"><input id="gifVec" type="checkbox"> 벡터 포함</label>
-      <label class="check"><input id="gifPart" type="checkbox"> 입자 포함</label>
-    </div>
-    <button id="btnGif" class="primary wide" disabled>GIF 만들기</button>
-    <div id="gifBox" class="gifbox hidden"><img id="gifImg" alt="GIF 미리보기"><a id="gifLink" download="lbm.gif">GIF 다운로드</a></div>
-  </section>
-
-  <section>
-    <h2><span class="num">7</span>물체 하중 <span class="sub">단위 깊이당</span></h2>
-    <div class="tablewrap"><table class="loads" id="loadTable"></table></div>
-    <div class="grid2">
-      <label>객체<select id="loadObj"></select></label>
-      <label>항목<select id="loadQty"><option value="fx">F<sub>x</sub> [N/m]</option><option value="fy">F<sub>y</sub> [N/m]</option><option value="m">M [N·m/m]</option><option value="theta">각도 [°]</option><option value="rpm">회전수 [rpm]</option></select></label>
-    </div>
-    <canvas id="loadChart" width="336" height="140"></canvas>
-    <p class="hint">C<sub>d</sub>, C<sub>l</sub>은 최대 유입 속도와 객체 높이(y 방향 크기) 기준입니다. 평균은 해석 후반 50% 구간입니다.</p>
   </section>
 </aside>
-
+<main>
 <section id="stage">
   <canvas id="cv"></canvas>
   <div class="toolbar">
@@ -238,8 +199,52 @@
   <div id="cursorInfo" class="cursor mono"></div>
   <div id="toast" class="toast hidden"></div>
 </section>
+<div id="bottom">
+  <div class="bbar" id="bottomBar"><b>결과 · 그래프</b><span id="bottomInfo"></span><span class="caret" id="bottomCaret">▾ 접기</span></div>
+  <div class="cards">
+    <div class="card">
+      <h2>결과 · GIF</h2>
+    <label>표시 필드<select id="inField"><option value="umag">속도 크기 |u|</option><option value="vort">와도 ω</option><option value="pressure">압력 p</option></select></label>
+    <div class="row">
+      <button id="btnEmit" class="ghost toggle" title="결과 화면을 클릭해 입자 방출점 추가">입자 방출점 추가</button>
+      <button id="btnEmitClear" class="ghost">방출점 초기화</button>
+    </div>
+    <div class="grid3">
+      <label>FPS<input id="inFps" type="number" min="1" max="50" value="15"></label>
+      <label>배율<select id="inGifScale"><option value="1">×1</option><option value="2">×2</option></select></label>
+      <span></span>
+    </div>
+    <div class="row">
+      <label class="check"><input id="gifVec" type="checkbox"> 벡터 포함</label>
+      <label class="check"><input id="gifPart" type="checkbox"> 입자 포함</label>
+    </div>
+    <button id="btnGif" class="primary wide" disabled>GIF 만들기</button>
+    <div id="gifBox" class="gifbox hidden"><img id="gifImg" alt="GIF 미리보기"><a id="gifLink" download="lbm.gif">GIF 다운로드</a></div>
+    </div>
+    <div class="card">
+      <h2>물체 하중 <small>단위 깊이당</small></h2>
+    <div class="tablewrap"><table class="loads" id="loadTable"></table></div>
+    <div class="grid2">
+      <label>객체<select id="loadObj"></select></label>
+      <label>항목<select id="loadQty"><option value="fx">F<sub>x</sub> [N/m]</option><option value="fy">F<sub>y</sub> [N/m]</option><option value="m">M [N·m/m]</option><option value="theta">각도 [°]</option><option value="rpm">회전수 [rpm]</option></select></label>
+    </div>
+    <canvas id="loadChart" width="336" height="140"></canvas>
+    <p class="hint">C<sub>d</sub>, C<sub>l</sub>은 최대 유입 속도와 객체 높이(y 방향 크기) 기준입니다. 평균은 해석 후반 50% 구간입니다.</p>
+    </div>
+  </div>
+</div>
 </main>
+<aside id="right">
+  <div class="topbar">
+    <nav class="dimnav"><a class="on" href="index.html">2D</a><a href="3d.html">3D</a></nav>
+    <a class="btn" href="theory.html" target="_blank" rel="noopener">Theory · 원리와 검증</a>
+    <button id="btnTheme" class="ghost theme-btn" title="테마: 시스템 설정">◐</button>
+  </div>
+  <div id="agentPanel"></div>
+</aside>
+</div>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
+<script type="module" src="js/agent2d.js"></script>
 </body>
 </html>

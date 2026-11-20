@@ -6,6 +6,8 @@ import { generate } from './lbm3d/shapes.js';
 import { parseDxf } from './lbm/dxf.js';
 import { planeField, fieldRange, toRGBA, planeQuad, planeVectors, planeStreams, particleBuffers, sampleAt, legendCanvas, FIELD_LABEL } from './results3d.js';
 import { GIFEncoder, quantize, applyPalette } from './vendor/gifenc.esm.js';
+import { attach3d } from './agent/agent3d.js';
+import { bindBottom } from './simweb/panel.js';
 
 const $ = (id) => document.getElementById(id);
 const STATE_KO = { idle: '대기', building: '준비 중', running: '계산 중', paused: '일시정지', done: '완료', stopped: '중지됨', diverged: '발산', error: '오류' };
@@ -36,7 +38,7 @@ function defaultCase() {
 }
 
 let S = defaultCase(), sel = -1, patchSel = -1, theme = 'system', view = null, worker = null, gpuInfo = undefined;
-let run = null, frames = [], cur = -1, playing = null, state = 'idle', runRange = null, voxCells = null;
+let run = null, frames = [], cur = -1, playing = null, state = 'idle', runRange = null, voxCells = null, EXAMPLES = [];
 
 function toast(msg, ms = 3200) {
   const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
@@ -840,6 +842,7 @@ function requestVoxels() {
 async function loadExamples() {
   try {
     const idx = await (await fetch('samples/3d/index.json')).json();
+    EXAMPLES = idx.cases.map((c) => ({ title: c.title, file: c.file }));
     for (const c of idx.cases) $('selExample').add(new Option(c.title, c.file));
   } catch (_) {}
 }
@@ -888,7 +891,56 @@ function init() {
   bindInputs(); bindPatches(); bindView(); bindAnalysis();
   loadExamples();
   fetch('samples/3d/turbine_free.json').then((r) => r.json()).then(loadCase).catch(() => { loadCase(defaultCase()); });
+  bindBottom();
+  attach3d(agentHooks());
   window.__lbm3d = { get S() { return S; }, get frames() { return frames; }, get state() { return state; }, view, startRun, loadCase, setMode };
+}
+
+function paramsText() {
+  const prm = latticeParams3(caseForParams(), backendGuess());
+  return `격자 ${prm.Nx}×${prm.Ny}×${prm.Nz} (${prm.cells.toLocaleString()} 셀, Δx ${fmt(prm.dxmm)} mm) · Re ${fmt(prm.Re_L, 0)} · Δt ${fmt(prm.dt * 1000)} ms · τ₀ ${prm.tau0.toFixed(5)} · 스텝 ${prm.steps.toLocaleString()} · 메모리 약 ${(prm.cells * 196 / 2 ** 20).toFixed(0)} MB${prm.cells > prm.cap ? ` · 상한 ${prm.cap.toLocaleString()} 셀 초과` : ''}${prm.warnings.length ? ` · 경고: ${prm.warnings.join(' / ')}` : ''}`;
+}
+
+function agentHooks() {
+  return {
+    get S() { return S; },
+    setS: (v) => { S = v; },
+    sel: () => sel,
+    setSel: (i) => { sel = i; },
+    g3, centerOf, normObj, meshOf, objectVerts, faceUV,
+    updateObjView: () => {},
+    locked, paramsText,
+    state: () => state,
+    view,
+    setMode,
+    hasFrames: () => frames.length > 0,
+    hasRun: () => !!(run && run.prm),
+    examples: () => EXAMPLES,
+    resetRange: () => { runRange = null; if (S.view.range === 'run') computeRunRange(); },
+    slicesChanged: () => { syncInputs(); scheduleGuides(); worker.postMessage({ cmd: 'slices', idx: sliceIdx() }); },
+    analyze: (kind, o) => {
+      if (o.mean !== undefined) $('chkAnMean').checked = !!o.mean;
+      if (o.level !== undefined) $('inQf').value = o.level;
+      ({ stream: $('btnS3'), qiso: $('btnQ'), vtk: $('btnVtk') })[kind]?.click();
+    },
+    plot: (o, targets) => {
+      document.getElementById('bottom').classList.remove('collapsed');
+      if (o.source === 'probe') { $('prQty').value = o.qty || 'umag'; drawProbeChart(); $('probeChart').scrollIntoView({ block: 'nearest', inline: 'nearest' }); return; }
+      $('loadQty').value = o.qty || 'fx';
+      if (o.target !== undefined && run) { const i = targets(o.target)[0], j = run.names.indexOf(S.objects[i].name); if (j >= 0) $('loadObj').value = j; }
+      drawLoadChart(); $('loadChart').scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    },
+    loadExample: (file) => { fetch(`samples/3d/${file}`).then((r) => r.json()).then((c) => { loadCase(c); toast(`예제: ${c.title || c.name}`); }).catch((e) => toast(e.message)); },
+    stop: () => worker.postMessage({ cmd: 'stop' }),
+    run: () => { if (!locked()) startRun(); },
+    refreshAll: (geo, full) => {
+      if (full) setMode(S.mode || 'edit');
+      syncInputs();
+      if (geo || full) { voxCells = null; if ($('chkVox').checked) { $('chkVox').checked = false; } rebuildScene(); renderProbes(); worker.postMessage({ cmd: 'probes', idx: probeIdx() }); }
+      updateParams();
+      if (S.mode === 'result') refreshResult();
+    },
+  };
 }
 
 init();
